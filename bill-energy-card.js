@@ -1,13 +1,15 @@
 /*
-  Bill Energy Card v1.1.0
-  Custom Lovelace card สำหรับ Home Assistant
-  เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด)
-  คำนวณค่าไฟตามอัตรา PEA (Ft adjustment, ค่าบริการ, VAT) ที่ปรับตั้งค่าได้
+  Bill Energy Card v1.2.0
+  Custom Lovelace card for Home Assistant
+  เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) / Compare energy & cost from 2 sensors (grid vs load)
+  คำนวณค่าไฟตามอัตรา PEA (Ft adjustment, ค่าบริการ, VAT) ที่ปรับตั้งค่าได้ / Configurable PEA rate calculation
   รองรับ palette สี: solar / modern / pea / custom
+  รองรับภาษา: th (ไทย) / en (English)
 */
 
 const DEFAULT_CONFIG = {
   title: 'Bill Energy Card',
+  language: 'th',
   grid_entity: '',
   load_entity: '',
   ft_adjustment: 0.1623,
@@ -33,6 +35,124 @@ const PALETTES = {
 };
 
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const STRINGS = {
+  th: {
+    daily: 'รายวัน',
+    monthly: 'รายเดือน',
+    gridShort: 'กริด',
+    loadShort: 'โหลด',
+    savedShort: 'ประหยัด',
+    fromGrid: 'จากกริด',
+    totalLoad: 'โหลดรวม',
+    equivalentSuffix: '% เทียบเท่า',
+    detailGrid: 'รายละเอียด: กริด',
+    detailLoad: 'รายละเอียด: โหลด',
+    unitsUsed: 'หน่วยที่ใช้',
+    unitsWord: 'หน่วย',
+    energyCost: 'ค่าพลังงาน',
+    ftWord: 'Ft',
+    serviceCharge: 'ค่าบริการ',
+    vatWord: 'VAT',
+    totalWord: 'รวม',
+    currencyWord: 'บาท',
+    ftSettingLabel: 'Ft (บาท/หน่วย)',
+    serviceSettingLabel: 'ค่าบริการ (บาท/เดือน)',
+    vatSettingLabel: 'VAT (%)',
+    msgConfigMissing: 'กรุณาตั้งค่า grid_entity และ load_entity ในการตั้งค่าการ์ด (แก้ไขการ์ด → ระบุเซ็นเซอร์)',
+    msgEntityNotFound: 'ไม่พบเซ็นเซอร์ที่ระบุไว้ ตรวจสอบ entity id อีกครั้ง',
+    msgLoading: 'กำลังโหลดข้อมูล...',
+    msgNoData: 'ยังไม่มีข้อมูลพอสำหรับช่วงเวลานี้ (ต้องมีประวัติ statistics อย่างน้อย 2 ช่วง)',
+    paletteSolar: 'โซลาร์',
+    paletteModern: 'มรกต',
+    paletteCustom: 'กำหนดเอง',
+    secSensors: 'เซ็นเซอร์',
+    fieldCardTitle: 'ชื่อการ์ด',
+    gridPickerLabel: 'เซ็นเซอร์: พลังงานจากกริด',
+    loadPickerLabel: 'เซ็นเซอร์: พลังงานโหลดรวม',
+    secRates: 'อัตราค่าไฟ (ปรับได้ตามประกาศ กกพ.)',
+    fieldFt: 'ค่า Ft (บาท/หน่วย)',
+    fieldService: 'ค่าบริการ (บาท/เดือน)',
+    fieldVat: 'ภาษีมูลค่าเพิ่ม VAT (%)',
+    fieldTier1Rate: 'อัตราค่าไฟ ขั้นที่ 1 (บาท/หน่วย)',
+    fieldTier1Limit: 'เพดานหน่วย ขั้นที่ 1 (หน่วย)',
+    fieldTier2Rate: 'อัตราค่าไฟ ขั้นที่ 2 (บาท/หน่วย)',
+    fieldTier2Limit: 'เพดานหน่วย ขั้นที่ 2 (หน่วย)',
+    fieldTier3Rate: 'อัตราค่าไฟ ขั้นที่ 3 (เกินเพดานขั้น 2)',
+    secColor: 'โทนสี',
+    fieldPaletteLabel: 'โทนสี',
+    paletteOptSolar: 'โซลาร์ (ฟ้า-เขียว)',
+    paletteOptModern: 'มรกต (เขียวเข้ม)',
+    paletteOptPea: 'PEA (ม่วง-ทอง)',
+    paletteOptCustom: 'กำหนดเอง',
+    fieldGridColor: 'สีกริด',
+    fieldLoadColor: 'สีโหลด',
+    secDefaultView: 'มุมมองเริ่มต้น',
+    fieldPeriodLabel: 'ช่วงเวลาเริ่มต้น',
+    periodOptDaily: 'รายวัน',
+    periodOptMonthly: 'รายเดือน',
+    secLanguage: 'ภาษา',
+    fieldLanguageLabel: 'ภาษา'
+  },
+  en: {
+    daily: 'Daily',
+    monthly: 'Monthly',
+    gridShort: 'Grid',
+    loadShort: 'Load',
+    savedShort: 'Saved',
+    fromGrid: 'From grid',
+    totalLoad: 'Total load',
+    equivalentSuffix: '% of equivalent bill',
+    detailGrid: 'Details: Grid',
+    detailLoad: 'Details: Load',
+    unitsUsed: 'Units used',
+    unitsWord: 'units',
+    energyCost: 'Energy cost',
+    ftWord: 'Ft',
+    serviceCharge: 'Service charge',
+    vatWord: 'VAT',
+    totalWord: 'Total',
+    currencyWord: 'THB',
+    ftSettingLabel: 'Ft (THB/unit)',
+    serviceSettingLabel: 'Service charge (THB/month)',
+    vatSettingLabel: 'VAT (%)',
+    msgConfigMissing: 'Please set grid_entity and load_entity in the card configuration (Edit card -> set sensors)',
+    msgEntityNotFound: 'Sensor not found. Please check the entity id.',
+    msgLoading: 'Loading data...',
+    msgNoData: 'Not enough data for this period yet (need at least 2 statistics buckets)',
+    paletteSolar: 'Solar',
+    paletteModern: 'Emerald',
+    paletteCustom: 'Custom',
+    secSensors: 'Sensors',
+    fieldCardTitle: 'Card title',
+    gridPickerLabel: 'Sensor: grid energy',
+    loadPickerLabel: 'Sensor: total load energy',
+    secRates: 'Electricity rates (adjustable per regulator announcements)',
+    fieldFt: 'Ft adjustment (THB/unit)',
+    fieldService: 'Service charge (THB/month)',
+    fieldVat: 'VAT (%)',
+    fieldTier1Rate: 'Tier 1 rate (THB/unit)',
+    fieldTier1Limit: 'Tier 1 limit (units)',
+    fieldTier2Rate: 'Tier 2 rate (THB/unit)',
+    fieldTier2Limit: 'Tier 2 limit (units)',
+    fieldTier3Rate: 'Tier 3 rate (above tier 2 limit)',
+    secColor: 'Color theme',
+    fieldPaletteLabel: 'Color theme',
+    paletteOptSolar: 'Solar (blue-green)',
+    paletteOptModern: 'Emerald (dark green)',
+    paletteOptPea: 'PEA (purple-gold)',
+    paletteOptCustom: 'Custom',
+    fieldGridColor: 'Grid color',
+    fieldLoadColor: 'Load color',
+    secDefaultView: 'Default view',
+    fieldPeriodLabel: 'Default period',
+    periodOptDaily: 'Daily',
+    periodOptMonthly: 'Monthly',
+    secLanguage: 'Language',
+    fieldLanguageLabel: 'Language'
+  }
+};
 
 function shade(hex, amt) {
   const num = parseInt(hex.replace('#', ''), 16);
@@ -45,12 +165,20 @@ function shade(hex, amt) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
+function tint(hex, alpha) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
 function fmtBaht(n) {
-  return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtKwh(n) {
-  return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 class BillEnergyCard extends HTMLElement {
@@ -86,6 +214,11 @@ class BillEnergyCard extends HTMLElement {
     return document.createElement('bill-energy-card-editor');
   }
 
+  _t(key) {
+    const lang = (this._config && this._config.language === 'en') ? 'en' : 'th';
+    return STRINGS[lang][key] || key;
+  }
+
   _getColors() {
     const c = this._config;
     if (c.palette === 'custom') return { grid: c.grid_color, load: c.load_color };
@@ -118,57 +251,71 @@ class BillEnergyCard extends HTMLElement {
 
   _buildShell() {
     const root = this.shadowRoot;
+    const t = (k) => this._t(k);
     root.innerHTML = `
       <style>
         ha-card { padding: 16px; }
-        .bec-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
-        .bec-title { font-size:16px; font-weight:500; color:var(--primary-text-color); display:flex; align-items:center; gap:6px; }
-        .bec-controls { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-        .bec-controls select, .bec-controls button {
-          border:1px solid var(--divider-color); border-radius:8px; padding:4px 10px; font-size:12px;
-          background:var(--card-background-color); color:var(--primary-text-color); cursor:pointer;
+        .bec-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+        .bec-title { font-size:16px; font-weight:500; color:var(--primary-text-color); display:flex; align-items:center; gap:10px; }
+        .bec-title-badge { width:32px; height:32px; border-radius:50%; background:rgba(var(--rgb-primary-color, 3,169,244),0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .bec-title-badge ha-icon { color:var(--primary-color); --mdc-icon-size:18px; }
+        .bec-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .bec-controls select {
+          border:none; border-radius:999px; padding:6px 14px; font-size:12px;
+          background:var(--secondary-background-color, rgba(127,127,127,0.08)); color:var(--primary-text-color); cursor:pointer;
         }
-        .bec-controls button.active { background:var(--primary-color); color:var(--text-primary-color,#fff); border-color:var(--primary-color); }
-        .bec-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(108px, 1fr)); gap:8px; margin-bottom:12px; }
-        .bec-metric { background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:10px 12px; min-width:0; }
-        .bec-metric.saved { background: rgba(76,175,80,0.14); }
-        .bec-mlabel { font-size:12px; color:var(--secondary-text-color); margin-bottom:4px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .bec-mlabel ha-icon { flex-shrink:0; --mdc-icon-size:16px; }
+        .bec-period-track { display:inline-flex; background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:999px; padding:3px; gap:2px; }
+        .bec-period-btn { border:none; border-radius:999px; padding:6px 14px; font-size:12px; background:transparent; color:var(--secondary-text-color); cursor:pointer; }
+        .bec-period-btn.active { background:var(--primary-color); color:var(--text-primary-color,#fff); }
+        .bec-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(108px, 1fr)); gap:10px; margin-bottom:14px; }
+        .bec-metric { border-radius:14px; padding:12px 14px; min-width:0; }
+        .bec-metric.saved { background: var(--color-background-success, rgba(76,175,80,0.14)); }
+        .bec-micon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
+        .bec-micon ha-icon { --mdc-icon-size:15px; }
+        .bec-mlabel { font-size:12px; color:var(--secondary-text-color); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .bec-mvalue { font-size:19px; font-weight:500; color:var(--primary-text-color); line-height:1.25; word-break:break-word; }
         .bec-metric.saved .bec-mvalue { color:var(--success-color, #4caf50); }
         .bec-msub { font-size:12px; color:var(--secondary-text-color); margin-top:2px; }
-        .bec-legend { display:flex; gap:14px; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; flex-wrap:wrap; }
-        .bec-swatch { width:11px; height:11px; border-radius:2px; display:inline-block; margin-right:4px; vertical-align:middle; }
-        .bec-chartwrap { width:100%; margin-bottom:12px; }
+        .bec-legend { display:flex; gap:14px; font-size:13px; color:var(--secondary-text-color); margin-bottom:6px; flex-wrap:wrap; }
+        .bec-swatch { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; }
+        .bec-chartwrap { width:100%; margin-bottom:14px; }
         .bec-chartwrap svg { width:100%; height:auto; display:block; }
-        .bec-breakdown { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:12px; }
-        .bec-bdcol { border:1px solid var(--divider-color); border-radius:8px; padding:8px 10px; min-width:0; }
-        .bec-bdtitle { font-size:13px; font-weight:500; margin-bottom:6px; color:var(--primary-text-color); }
+        .bec-breakdown { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:14px; }
+        .bec-bdcol { border-radius:14px; padding:12px 14px; min-width:0; }
+        .bec-bdtitle { font-size:13px; font-weight:500; margin-bottom:8px; color:var(--primary-text-color); display:flex; align-items:center; gap:6px; }
+        .bec-bdtitle ha-icon { --mdc-icon-size:15px; }
         .bec-bdrow { display:flex; flex-direction:column; gap:1px; padding:4px 0; }
         .bec-bdrow span:first-child { font-size:12px; color:var(--secondary-text-color); }
         .bec-bdrow span:last-child { font-size:14px; color:var(--primary-text-color); }
-        .bec-bdrow.total { border-top:1px solid var(--divider-color); margin-top:4px; padding-top:6px; }
-        .bec-bdrow.total span:first-child { font-size:13px; font-weight:500; color:var(--primary-text-color); }
-        .bec-bdrow.total span:last-child { font-size:16px; font-weight:500; color:var(--primary-text-color); }
-        .bec-settings { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; align-items:start; border-top:1px solid var(--divider-color); padding-top:10px; }
+        .bec-bdtotal { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:8px 14px; border-radius:999px; font-weight:500; font-size:13px; color:var(--primary-text-color); }
+        .bec-settings { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; align-items:start; border-top:1px solid var(--divider-color); padding-top:14px; }
         .bec-settings-icon { color:var(--secondary-text-color); margin-bottom:2px; }
         .bec-settings label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--secondary-text-color); }
-        .bec-settings input { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:6px; padding:6px 8px; font-size:14px; background:var(--card-background-color); color:var(--primary-text-color); }
+        .bec-settings input { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:999px; padding:6px 14px; font-size:13px; text-align:center; background:var(--card-background-color); color:var(--primary-text-color); }
         .bec-msg { padding:20px 4px; text-align:center; color:var(--secondary-text-color); font-size:13px; }
       </style>
       <ha-card>
         <div class="bec-body">
           <div class="bec-header">
-            <div class="bec-title"><ha-icon icon="mdi:flash"></ha-icon>${this._config.title}</div>
+            <div class="bec-title">
+              <span class="bec-title-badge"><ha-icon icon="mdi:flash"></ha-icon></span>
+              ${this._config.title}
+            </div>
             <div class="bec-controls">
-              <select class="bec-palette">
-                <option value="solar">โซลาร์</option>
-                <option value="modern">มรกต</option>
-                <option value="pea">PEA</option>
-                <option value="custom">กำหนดเอง</option>
+              <select class="bec-lang">
+                <option value="th">ไทย</option>
+                <option value="en">English</option>
               </select>
-              <button class="bec-period-btn" data-period="daily">รายวัน</button>
-              <button class="bec-period-btn" data-period="monthly">รายเดือน</button>
+              <select class="bec-palette">
+                <option value="solar">${t('paletteSolar')}</option>
+                <option value="modern">${t('paletteModern')}</option>
+                <option value="pea">PEA</option>
+                <option value="custom">${t('paletteCustom')}</option>
+              </select>
+              <div class="bec-period-track">
+                <button class="bec-period-btn" data-period="daily">${t('daily')}</button>
+                <button class="bec-period-btn" data-period="monthly">${t('monthly')}</button>
+              </div>
             </div>
           </div>
           <div class="bec-content"></div>
@@ -176,6 +323,12 @@ class BillEnergyCard extends HTMLElement {
       </ha-card>
     `;
     this._built = true;
+    root.querySelector('.bec-lang').value = this._config.language || 'th';
+    root.querySelector('.bec-lang').addEventListener('change', (e) => {
+      this._config.language = e.target.value;
+      this._buildShell();
+      this._updateView();
+    });
     root.querySelector('.bec-palette').value = this._config.palette;
     root.querySelector('.bec-palette').addEventListener('change', (e) => {
       this._config.palette = e.target.value;
@@ -263,8 +416,13 @@ class BillEnergyCard extends HTMLElement {
 
   _formatLabel(isoStart, period) {
     const d = new Date(isoStart);
-    if (period === 'daily') return d.getDate() + ' ' + THAI_MONTHS[d.getMonth()];
-    return THAI_MONTHS[d.getMonth()];
+    const months = this._config.language === 'en' ? EN_MONTHS : THAI_MONTHS;
+    if (period === 'daily') {
+      return this._config.language === 'en'
+        ? months[d.getMonth()] + ' ' + d.getDate()
+        : d.getDate() + ' ' + months[d.getMonth()];
+    }
+    return months[d.getMonth()];
   }
 
   async _updateView() {
@@ -275,14 +433,14 @@ class BillEnergyCard extends HTMLElement {
     });
     const c = this._config;
     if (!c.grid_entity || !c.load_entity) {
-      this._showMessage('กรุณาตั้งค่า grid_entity และ load_entity ในการตั้งค่าการ์ด (แก้ไขการ์ด → ระบุเซ็นเซอร์)');
+      this._showMessage(this._t('msgConfigMissing'));
       return;
     }
     if (!this._hass.states[c.grid_entity] || !this._hass.states[c.load_entity]) {
-      this._showMessage('ไม่พบเซ็นเซอร์ที่ระบุไว้ ตรวจสอบ entity id อีกครั้ง');
+      this._showMessage(this._t('msgEntityNotFound'));
       return;
     }
-    this._showMessage('กำลังโหลดข้อมูล...');
+    this._showMessage(this._t('msgLoading'));
     const count = this._period === 'daily' ? c.daily_days : c.monthly_months;
     const [gridSeries, loadSeries] = await Promise.all([
       this._fetchSeries(c.grid_entity, this._period, count),
@@ -290,7 +448,7 @@ class BillEnergyCard extends HTMLElement {
     ]);
     const n = Math.max(gridSeries.length, loadSeries.length);
     if (n === 0) {
-      this._showMessage('ยังไม่มีข้อมูลพอสำหรับช่วงเวลานี้ (ต้องมีประวัติ statistics อย่างน้อย 2 ช่วง)');
+      this._showMessage(this._t('msgNoData'));
       return;
     }
     const labels = [];
@@ -309,6 +467,7 @@ class BillEnergyCard extends HTMLElement {
 
   _renderData(labels, gridVals, loadVals) {
     const c = this._config;
+    const t = (k) => this._t(k);
     const colors = this._getColors();
     const bucketDays = this._period === 'daily' ? 1 : 30;
     const totalDays = this._period === 'daily' ? labels.length : c.monthly_months * 30;
@@ -318,46 +477,50 @@ class BillEnergyCard extends HTMLElement {
     const loadCost = this._calcCost(loadTotal, totalDays);
     const saved = loadCost.total - gridCost.total;
     const savedPct = loadCost.total > 0 ? (saved / loadCost.total) * 100 : 0;
+    const cur = t('currencyWord');
 
     const content = this.shadowRoot.querySelector('.bec-content');
     content.innerHTML = `
       <div class="bec-metrics">
-        <div class="bec-metric">
-          <div class="bec-mlabel"><ha-icon icon="mdi:transmission-tower"></ha-icon>กริด</div>
+        <div class="bec-metric" style="background:${tint(colors.grid, 0.14)}">
+          <div class="bec-micon" style="background:${tint(colors.grid, 0.28)}"><ha-icon icon="mdi:transmission-tower" style="color:${colors.grid}"></ha-icon></div>
+          <div class="bec-mlabel">${t('gridShort')}</div>
           <div class="bec-mvalue">${fmtKwh(gridTotal)} kWh</div>
-          <div class="bec-msub">${fmtBaht(gridCost.total)} บาท</div>
+          <div class="bec-msub">${fmtBaht(gridCost.total)} ${cur}</div>
         </div>
-        <div class="bec-metric">
-          <div class="bec-mlabel"><ha-icon icon="mdi:home-lightning-bolt"></ha-icon>โหลด</div>
+        <div class="bec-metric" style="background:${tint(colors.load, 0.14)}">
+          <div class="bec-micon" style="background:${tint(colors.load, 0.28)}"><ha-icon icon="mdi:home-lightning-bolt" style="color:${colors.load}"></ha-icon></div>
+          <div class="bec-mlabel">${t('loadShort')}</div>
           <div class="bec-mvalue">${fmtKwh(loadTotal)} kWh</div>
-          <div class="bec-msub">${fmtBaht(loadCost.total)} บาท</div>
+          <div class="bec-msub">${fmtBaht(loadCost.total)} ${cur}</div>
         </div>
         <div class="bec-metric saved">
-          <div class="bec-mlabel"><ha-icon icon="mdi:leaf"></ha-icon>ประหยัด</div>
-          <div class="bec-mvalue">${fmtBaht(saved)} บาท</div>
-          <div class="bec-msub">${savedPct.toFixed(1)}% เทียบเท่า</div>
+          <div class="bec-micon" style="background:var(--color-background-success)"><ha-icon icon="mdi:leaf" style="color:var(--success-color)"></ha-icon></div>
+          <div class="bec-mlabel">${t('savedShort')}</div>
+          <div class="bec-mvalue">${fmtBaht(saved)} ${cur}</div>
+          <div class="bec-msub">${savedPct.toFixed(1)}${t('equivalentSuffix')}</div>
         </div>
       </div>
       <div class="bec-legend">
-        <span><span class="bec-swatch" style="background:${colors.grid}"></span>จากกริด</span>
-        <span><span class="bec-swatch" style="background:${colors.load}"></span>โหลดรวม</span>
+        <span><span class="bec-swatch" style="background:${colors.grid}"></span>${t('fromGrid')}</span>
+        <span><span class="bec-swatch" style="background:${colors.load}"></span>${t('totalLoad')}</span>
       </div>
       <div class="bec-chartwrap">${this._buildChartSVG(labels, gridVals, loadVals, bucketDays, colors)}</div>
       <div class="bec-breakdown">
-        <div class="bec-bdcol">
-          <div class="bec-bdtitle">รายละเอียด: กริด</div>
-          ${this._buildBreakdownHTML(gridCost)}
+        <div class="bec-bdcol" style="background:${tint(colors.grid, 0.07)}">
+          <div class="bec-bdtitle"><ha-icon icon="mdi:transmission-tower" style="color:${colors.grid}"></ha-icon>${t('detailGrid')}</div>
+          ${this._buildBreakdownHTML(gridCost, colors.grid)}
         </div>
-        <div class="bec-bdcol">
-          <div class="bec-bdtitle">รายละเอียด: โหลด</div>
-          ${this._buildBreakdownHTML(loadCost)}
+        <div class="bec-bdcol" style="background:${tint(colors.load, 0.07)}">
+          <div class="bec-bdtitle"><ha-icon icon="mdi:home-lightning-bolt" style="color:${colors.load}"></ha-icon>${t('detailLoad')}</div>
+          ${this._buildBreakdownHTML(loadCost, colors.load)}
         </div>
       </div>
       <div class="bec-settings">
         <ha-icon class="bec-settings-icon" icon="mdi:cog-outline"></ha-icon>
-        <label>Ft (บาท/หน่วย)<input type="number" step="0.0001" class="bec-set-ft" value="${c.ft_adjustment}"></label>
-        <label>ค่าบริการ (บาท/เดือน)<input type="number" step="0.01" class="bec-set-service" value="${c.service_charge}"></label>
-        <label>VAT (%)<input type="number" step="0.1" class="bec-set-vat" value="${c.vat_percent}"></label>
+        <label>${t('ftSettingLabel')}<input type="number" step="0.0001" class="bec-set-ft" value="${c.ft_adjustment}"></label>
+        <label>${t('serviceSettingLabel')}<input type="number" step="0.01" class="bec-set-service" value="${c.service_charge}"></label>
+        <label>${t('vatSettingLabel')}<input type="number" step="0.1" class="bec-set-vat" value="${c.vat_percent}"></label>
       </div>
     `;
     content.querySelector('.bec-set-ft').addEventListener('change', (e) => {
@@ -374,14 +537,30 @@ class BillEnergyCard extends HTMLElement {
     });
   }
 
-  _buildBreakdownHTML(cost) {
+  _buildBreakdownHTML(cost, accentColor) {
+    const t = (k) => this._t(k);
+    const cur = t('currencyWord');
     return (
-      '<div class="bec-bdrow"><span>หน่วยที่ใช้</span><span>' + fmtKwh(cost.units) + ' หน่วย</span></div>' +
-      '<div class="bec-bdrow"><span>ค่าพลังงาน</span><span>' + fmtBaht(cost.energy) + ' บาท</span></div>' +
-      '<div class="bec-bdrow"><span>Ft</span><span>' + fmtBaht(cost.ft) + ' บาท</span></div>' +
-      '<div class="bec-bdrow"><span>ค่าบริการ</span><span>' + fmtBaht(cost.service) + ' บาท</span></div>' +
-      '<div class="bec-bdrow"><span>VAT</span><span>' + fmtBaht(cost.vat) + ' บาท</span></div>' +
-      '<div class="bec-bdrow total"><span>รวม</span><span>' + fmtBaht(cost.total) + ' บาท</span></div>'
+      '<div class="bec-bdrow"><span>' + t('unitsUsed') + '</span><span>' + fmtKwh(cost.units) + ' ' + t('unitsWord') + '</span></div>' +
+      '<div class="bec-bdrow"><span>' + t('energyCost') + '</span><span>' + fmtBaht(cost.energy) + ' ' + cur + '</span></div>' +
+      '<div class="bec-bdrow"><span>' + t('ftWord') + '</span><span>' + fmtBaht(cost.ft) + ' ' + cur + '</span></div>' +
+      '<div class="bec-bdrow"><span>' + t('serviceCharge') + '</span><span>' + fmtBaht(cost.service) + ' ' + cur + '</span></div>' +
+      '<div class="bec-bdrow"><span>' + t('vatWord') + '</span><span>' + fmtBaht(cost.vat) + ' ' + cur + '</span></div>' +
+      '<div class="bec-bdtotal" style="background:' + tint(accentColor, 0.22) + '"><span>' + t('totalWord') + '</span><span>' + fmtBaht(cost.total) + ' ' + cur + '</span></div>'
+    );
+  }
+
+  _roundedTopPath(x, y, w, h, r) {
+    if (h <= 0) return '';
+    r = Math.min(r, w / 2, h);
+    return (
+      'M' + x + ',' + (y + h) +
+      ' L' + x + ',' + (y + r) +
+      ' Q' + x + ',' + y + ' ' + (x + r) + ',' + y +
+      ' L' + (x + w - r) + ',' + y +
+      ' Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) +
+      ' L' + (x + w) + ',' + (y + h) +
+      ' Z'
     );
   }
 
@@ -400,6 +579,7 @@ class BillEnergyCard extends HTMLElement {
     const groupW = chartW / n;
     const barW = Math.min(40, groupW * 0.38);
     const gap = 6;
+    const barRadius = Math.min(8, barW / 2);
     const labelStep = n > 12 ? 3 : n > 8 ? 2 : 1;
     const costFontSize = 20;
     const axisFontSize = 17;
@@ -420,12 +600,8 @@ class BillEnergyCard extends HTMLElement {
       const lh = (lv / maxVal) * chartH;
       const gy = marginTop + chartH - gh;
       const ly = marginTop + chartH - lh;
-      bars +=
-        '<rect x="' + gx.toFixed(1) + '" y="' + gy.toFixed(1) + '" width="' + barW.toFixed(1) +
-        '" height="' + gh.toFixed(1) + '" rx="3" fill="' + colors.grid + '"/>';
-      bars +=
-        '<rect x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" width="' + barW.toFixed(1) +
-        '" height="' + lh.toFixed(1) + '" rx="3" fill="' + colors.load + '"/>';
+      bars += '<path d="' + this._roundedTopPath(gx, gy, barW, gh, barRadius) + '" fill="' + colors.grid + '"/>';
+      bars += '<path d="' + this._roundedTopPath(lx, ly, barW, lh, barRadius) + '" fill="' + colors.load + '"/>';
 
       if (i % labelStep === 0) {
         const gCost = this._calcCost(gv, bucketDays).total;
@@ -447,7 +623,7 @@ class BillEnergyCard extends HTMLElement {
     }
 
     return (
-      '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="กราฟเปรียบเทียบหน่วยและค่าไฟฟ้าจากกริดและโหลด">' +
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Grid vs load energy and cost comparison chart">' +
       baseline + bars + xLabels + '</svg>'
     );
   }
@@ -463,6 +639,11 @@ class BillEnergyCardEditor extends HTMLElement {
     this._hass = hass;
     if (this._gridPicker) this._gridPicker.hass = hass;
     if (this._loadPicker) this._loadPicker.hass = hass;
+  }
+
+  _t(key) {
+    const lang = (this._config && this._config.language === 'en') ? 'en' : 'th';
+    return STRINGS[lang][key] || key;
   }
 
   _emitChange(newConfig) {
@@ -487,6 +668,7 @@ class BillEnergyCardEditor extends HTMLElement {
   _render() {
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     const c = this._config;
+    const t = (k) => this._t(k);
     this.shadowRoot.innerHTML = `
       <style>
         .card-config { padding: 8px 4px; }
@@ -497,57 +679,67 @@ class BillEnergyCardEditor extends HTMLElement {
         input[type="color"] { width:56px; height:36px; border:1px solid var(--divider-color); border-radius:6px; padding:0; }
       </style>
       <div class="card-config">
-        <div class="section-title">เซ็นเซอร์</div>
-        ${this._field('ชื่อการ์ด', 'title', 'text')}
+        <div class="section-title">${t('secLanguage')}</div>
+        <div class="field-row">
+          <label>${t('fieldLanguageLabel')}</label>
+          <select id="language-select">
+            <option value="th">ไทย</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <div class="section-title">${t('secSensors')}</div>
+        ${this._field(t('fieldCardTitle'), 'title', 'text')}
         <div id="grid-entity-slot" style="margin:6px 0;"></div>
         <div id="load-entity-slot" style="margin:6px 0;"></div>
 
-        <div class="section-title">อัตราค่าไฟ (ปรับได้ตามประกาศ กกพ.)</div>
-        ${this._field('ค่า Ft (บาท/หน่วย)', 'ft_adjustment', 'number', '0.0001')}
-        ${this._field('ค่าบริการ (บาท/เดือน)', 'service_charge', 'number', '0.01')}
-        ${this._field('ภาษีมูลค่าเพิ่ม VAT (%)', 'vat_percent', 'number', '0.1')}
-        ${this._field('อัตราค่าไฟ ขั้นที่ 1 (บาท/หน่วย)', 'tier1_rate', 'number', '0.0001')}
-        ${this._field('เพดานหน่วย ขั้นที่ 1 (หน่วย)', 'tier1_limit', 'number', '1')}
-        ${this._field('อัตราค่าไฟ ขั้นที่ 2 (บาท/หน่วย)', 'tier2_rate', 'number', '0.0001')}
-        ${this._field('เพดานหน่วย ขั้นที่ 2 (หน่วย)', 'tier2_limit', 'number', '1')}
-        ${this._field('อัตราค่าไฟ ขั้นที่ 3 (เกินเพดานขั้น 2)', 'tier3_rate', 'number', '0.0001')}
+        <div class="section-title">${t('secRates')}</div>
+        ${this._field(t('fieldFt'), 'ft_adjustment', 'number', '0.0001')}
+        ${this._field(t('fieldService'), 'service_charge', 'number', '0.01')}
+        ${this._field(t('fieldVat'), 'vat_percent', 'number', '0.1')}
+        ${this._field(t('fieldTier1Rate'), 'tier1_rate', 'number', '0.0001')}
+        ${this._field(t('fieldTier1Limit'), 'tier1_limit', 'number', '1')}
+        ${this._field(t('fieldTier2Rate'), 'tier2_rate', 'number', '0.0001')}
+        ${this._field(t('fieldTier2Limit'), 'tier2_limit', 'number', '1')}
+        ${this._field(t('fieldTier3Rate'), 'tier3_rate', 'number', '0.0001')}
 
-        <div class="section-title">โทนสี</div>
+        <div class="section-title">${t('secColor')}</div>
         <div class="field-row">
-          <label>โทนสี</label>
+          <label>${t('fieldPaletteLabel')}</label>
           <select id="palette-select">
-            <option value="solar">โซลาร์ (ฟ้า-เขียว)</option>
-            <option value="modern">มรกต (เขียวเข้ม)</option>
-            <option value="pea">PEA (ม่วง-ทอง)</option>
-            <option value="custom">กำหนดเอง</option>
+            <option value="solar">${t('paletteOptSolar')}</option>
+            <option value="modern">${t('paletteOptModern')}</option>
+            <option value="pea">${t('paletteOptPea')}</option>
+            <option value="custom">${t('paletteOptCustom')}</option>
           </select>
         </div>
         <div class="field-row">
-          <label>สีกริด</label>
+          <label>${t('fieldGridColor')}</label>
           <input id="grid-color" type="color" value="${c.grid_color}"/>
         </div>
         <div class="field-row">
-          <label>สีโหลด</label>
+          <label>${t('fieldLoadColor')}</label>
           <input id="load-color" type="color" value="${c.load_color}"/>
         </div>
 
-        <div class="section-title">มุมมองเริ่มต้น</div>
+        <div class="section-title">${t('secDefaultView')}</div>
         <div class="field-row">
-          <label>ช่วงเวลาเริ่มต้น</label>
+          <label>${t('fieldPeriodLabel')}</label>
           <select id="period-select">
-            <option value="daily">รายวัน</option>
-            <option value="monthly">รายเดือน</option>
+            <option value="daily">${t('periodOptDaily')}</option>
+            <option value="monthly">${t('periodOptMonthly')}</option>
           </select>
         </div>
       </div>
     `;
+    this.shadowRoot.querySelector('#language-select').value = c.language || 'th';
     this.shadowRoot.querySelector('#palette-select').value = c.palette;
     this.shadowRoot.querySelector('#period-select').value = c.default_period;
 
     this._gridPicker = document.createElement('ha-entity-picker');
     this._gridPicker.hass = this._hass;
     this._gridPicker.value = c.grid_entity || '';
-    this._gridPicker.label = 'เซ็นเซอร์: พลังงานจากกริด';
+    this._gridPicker.label = t('gridPickerLabel');
     this._gridPicker.allowCustomEntity = true;
     this._gridPicker.style.display = 'block';
     this._gridPicker.style.width = '100%';
@@ -561,7 +753,7 @@ class BillEnergyCardEditor extends HTMLElement {
     this._loadPicker = document.createElement('ha-entity-picker');
     this._loadPicker.hass = this._hass;
     this._loadPicker.value = c.load_entity || '';
-    this._loadPicker.label = 'เซ็นเซอร์: พลังงานโหลดรวม';
+    this._loadPicker.label = t('loadPickerLabel');
     this._loadPicker.allowCustomEntity = true;
     this._loadPicker.style.display = 'block';
     this._loadPicker.style.width = '100%';
@@ -572,6 +764,11 @@ class BillEnergyCardEditor extends HTMLElement {
     });
     this.shadowRoot.querySelector('#load-entity-slot').appendChild(this._loadPicker);
 
+    this.shadowRoot.querySelector('#language-select').addEventListener('change', (e) => {
+      const newConfig = Object.assign({}, this._config, { language: e.target.value });
+      this._emitChange(newConfig);
+      this._render();
+    });
     this.shadowRoot.querySelectorAll('input[data-key]').forEach((input) => {
       input.addEventListener('change', () => {
         const key = input.dataset.key;
@@ -608,6 +805,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'bill-energy-card',
   name: 'Bill Energy Card',
-  description: 'เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) พร้อมคำนวณ Ft/ค่าบริการ/VAT ที่ปรับตั้งค่าได้',
+  description: 'เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) พร้อมคำนวณ Ft/ค่าบริการ/VAT ที่ปรับตั้งค่าได้ / Compare 2 sensors with configurable PEA rate calc',
   preview: true
 });
