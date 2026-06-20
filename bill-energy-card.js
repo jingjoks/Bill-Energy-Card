@@ -451,6 +451,8 @@ class BillEnergyCardEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    if (this._gridPicker) this._gridPicker.hass = hass;
+    if (this._loadPicker) this._loadPicker.hass = hass;
   }
 
   _emitChange(newConfig) {
@@ -485,8 +487,8 @@ class BillEnergyCardEditor extends HTMLElement {
       <div class="card-config">
         <div class="section-title">เซ็นเซอร์</div>
         ${this._field('ชื่อการ์ด', 'title', 'text')}
-        ${this._field('Grid entity', 'grid_entity', 'text')}
-        ${this._field('Load entity', 'load_entity', 'text')}
+        <div id="grid-entity-slot" style="margin:6px 0;"></div>
+        <div id="load-entity-slot" style="margin:6px 0;"></div>
 
         <div class="section-title">อัตราค่าไฟ (ปรับได้ตามประกาศ กกพ.)</div>
         ${this._field('Ft adjustment (บาท/หน่วย)', 'ft_adjustment', 'number', '0.0001')}
@@ -529,6 +531,34 @@ class BillEnergyCardEditor extends HTMLElement {
     `;
     this.shadowRoot.querySelector('#palette-select').value = c.palette;
     this.shadowRoot.querySelector('#period-select').value = c.default_period;
+
+    this._gridPicker = document.createElement('ha-entity-picker');
+    this._gridPicker.hass = this._hass;
+    this._gridPicker.value = c.grid_entity || '';
+    this._gridPicker.label = 'Grid entity (เซ็นเซอร์พลังงานจากกริด)';
+    this._gridPicker.allowCustomEntity = true;
+    this._gridPicker.style.display = 'block';
+    this._gridPicker.style.width = '100%';
+    this._gridPicker.addEventListener('value-changed', (e) => {
+      e.stopPropagation();
+      const newConfig = Object.assign({}, this._config, { grid_entity: e.detail.value || '' });
+      this._emitChange(newConfig);
+    });
+    this.shadowRoot.querySelector('#grid-entity-slot').appendChild(this._gridPicker);
+
+    this._loadPicker = document.createElement('ha-entity-picker');
+    this._loadPicker.hass = this._hass;
+    this._loadPicker.value = c.load_entity || '';
+    this._loadPicker.label = 'Load entity (เซ็นเซอร์พลังงานโหลดรวม)';
+    this._loadPicker.allowCustomEntity = true;
+    this._loadPicker.style.display = 'block';
+    this._loadPicker.style.width = '100%';
+    this._loadPicker.addEventListener('value-changed', (e) => {
+      e.stopPropagation();
+      const newConfig = Object.assign({}, this._config, { load_entity: e.detail.value || '' });
+      this._emitChange(newConfig);
+    });
+    this.shadowRoot.querySelector('#load-entity-slot').appendChild(this._loadPicker);
 
     this.shadowRoot.querySelectorAll('input[data-key]').forEach((input) => {
       input.addEventListener('change', () => {
