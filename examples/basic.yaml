@@ -1,0 +1,5 @@
+# ตัวอย่างพื้นฐาน — ใช้ค่าเริ่มต้นทั้งหมด (อัตรา PEA งวด พ.ค.-ส.ค. 2569, palette: solar, มุมมองรายวัน)
+
+type: custom:bill-energy-card
+grid_entity: sensor.pzem_2phase_energy_grid
+load_entity: sensor.pzem_2phase_energy_load

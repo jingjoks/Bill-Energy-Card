@@ -1,0 +1,85 @@
+# Bill Energy Card
+
+Custom Lovelace card สำหรับ Home Assistant ที่เปรียบเทียบพลังงานและค่าไฟฟ้าจาก **2 เซ็นเซอร์** (เช่น พลังงานที่ดึงจากกริด vs พลังงานที่ใช้งานจริงทั้งบ้าน) ในการ์ดเดียว เหมาะมากสำหรับบ้านที่มีระบบ **โซลาร์ + แบตเตอรี่** เพราะจะเห็นชัดว่าระบบโซลาร์ช่วยประหยัดค่าไฟไปได้เท่าไหร่ในแต่ละวัน/เดือน
+
+> ส่วนหนึ่งของ [IotElt Hub](https://github.com/jingjoks) — ดูโปรเจกต์พี่น้องอย่าง [PEA Bill Card](https://github.com/jingjoks/Energy-Pay-Bill) ด้วย
+
+## คุณสมบัติ
+
+- เปรียบเทียบ 2 เซ็นเซอร์ในการ์ดเดียว (กริด vs โหลด) แทนการแยกการ์ด
+- คำนวณค่าไฟอัตโนมัติตามโครงสร้างอัตรา PEA: tier 1/2/3 + Ft adjustment + ค่าบริการ + VAT — **ทุกค่าปรับตั้งได้** เพราะค่า Ft เปลี่ยนทุก 4 เดือน
+- สลับมุมมอง **รายวัน / รายเดือน** ได้ในตัวการ์ดทันที
+- กราฟแท่งเปรียบเทียบ พร้อม**ตัวเลขค่าไฟ (฿) แสดงเหนือแต่ละแท่งโดยตรง** เพื่อความชัดเจน ไม่ต้องเดาจาก kWh
+- คำนวณ **"ประหยัดได้จากโซลาร์"** อัตโนมัติจากส่วนต่างค่าไฟกริด vs โหลด
+- เลือกพาเลตสีได้ 4 แบบ: **Solar** (ฟ้า-เขียว, ค่าเริ่มต้น) / **Modern** (เขียวมรกต) / **PEA** (ม่วง-ทอง) / **กำหนดเอง** (เลือกสีกริด/โหลดเองได้ผ่าน Visual Editor)
+- ใช้ Home Assistant **Long-term Statistics** (`recorder/statistics_during_period`, field `sum`) เพื่อความแม่นยำของยอดรายเดือน พร้อม fallback ไปใช้ REST history อัตโนมัติถ้ายังไม่มีข้อมูล statistics
+- มี **Visual Editor** ในตัว ไม่ต้องเขียน YAML เอง
+
+## ภาพตัวอย่าง
+
+> ยังไม่มีภาพจาก Home Assistant จริง — เมื่อติดตั้งและตั้งค่าแล้ว แนะนำให้แคปหน้าจอใส่ในโฟลเดอร์ `screenshots/` แล้วอ้างอิงที่นี่ เช่น:
+> ```md
+> ![รายวัน](screenshots/daily.png)
+> ![รายเดือน](screenshots/monthly.png)
+> ```
+
+## ความต้องการเบื้องต้น
+
+- เซ็นเซอร์ทั้ง 2 ตัวต้องเป็น `state_class: total_increasing` (ค่าพลังงานสะสม หน่วย kWh) เช่นจาก ESP32/PZEM ที่ส่งเข้า Home Assistant
+- เปิดใช้ `recorder` ตามปกติของ Home Assistant (ค่าเริ่มต้นเปิดอยู่แล้ว) เพื่อให้มี long-term statistics ให้ดึง
+
+## การติดตั้ง
+
+### วิธีที่ 1: HACS (Custom Repository)
+
+1. HACS → เมนู `⋮` มุมขวาบน → **Custom repositories**
+2. ใส่ URL: `https://github.com/jingjoks/Bill-Energy-Card`, Category: **Dashboard**
+3. ค้นหา "Bill Energy Card" ในรายการ Frontend แล้วติดตั้ง
+4. HACS จะเพิ่ม resource ให้อัตโนมัติ — รีเฟรชหน้าเบราว์เซอร์ (Ctrl+Shift+R)
+
+### วิธีที่ 2: Manual
+
+1. ดาวน์โหลด `bill-energy-card.js` ไปไว้ที่ `/config/www/`
+2. เพิ่ม resource ใน **Settings → Dashboards → Resources**:
+   ```yaml
+   - url: /local/bill-energy-card.js
+     type: module
+   ```
+3. รีเฟรชหน้าเบราว์เซอร์ (Ctrl+Shift+R)
+
+## การใช้งาน
+
+เพิ่มการ์ดผ่าน **Add Card → Bill Energy Card** (Visual Editor) หรือเขียน YAML ตรง:
+
+```yaml
+type: custom:bill-energy-card
+grid_entity: sensor.pzem_2phase_energy_grid
+load_entity: sensor.pzem_2phase_energy_load
+```
+
+ดูตัวอย่างเพิ่มเติมในโฟลเดอร์ [`examples/`](examples/)
+
+## ตัวเลือกการตั้งค่า
+
+| Key | ค่าเริ่มต้น | คำอธิบาย |
+|---|---|---|
+| `title` | `Bill Energy Card` | ชื่อหัวการ์ด |
+| `grid_entity` | *(ต้องระบุ)* | entity_id ของเซ็นเซอร์พลังงานจากกริด (total_increasing) |
+| `load_entity` | *(ต้องระบุ)* | entity_id ของเซ็นเซอร์พลังงานโหลดรวม (total_increasing) |
+| `ft_adjustment` | `0.1623` | ค่า Ft adjustment (บาท/หน่วย) — เปลี่ยนทุก 4 เดือนตามประกาศ กกพ. |
+| `service_charge` | `24.62` | ค่าบริการ (บาท/เดือน) |
+| `vat_percent` | `7` | อัตราภาษีมูลค่าเพิ่ม (%) |
+| `tier1_rate` / `tier1_limit` | `3.2484` / `150` | อัตราค่าไฟและเพดานหน่วยขั้นที่ 1 |
+| `tier2_rate` / `tier2_limit` | `4.2218` / `400` | อัตราค่าไฟและเพดานหน่วยขั้นที่ 2 |
+| `tier3_rate` | `4.4217` | อัตราค่าไฟสำหรับหน่วยที่เกินขั้นที่ 2 |
+| `palette` | `solar` | `solar` / `modern` / `pea` / `custom` |
+| `grid_color` / `load_color` | `#378ADD` / `#1D9E75` | สีกำหนดเอง (ใช้เมื่อ `palette: custom`) |
+| `default_period` | `daily` | มุมมองเริ่มต้น: `daily` หรือ `monthly` |
+| `daily_days` | `7` | จำนวนวันที่แสดงในมุมมองรายวัน |
+| `monthly_months` | `6` | จำนวนเดือนที่แสดงในมุมมองรายเดือน |
+
+> ⚠️ ค่า Ft เปลี่ยนทุก 4 เดือน (อ้างอิงประกาศ กกพ.) — แก้ไขผ่าน Visual Editor (กดแก้ไขการ์ด) เพื่อให้ค่าใหม่บันทึกถาวรในดashboard ส่วนช่องตั้งค่าด่วนบนตัวการ์ดเองเป็นแค่พรีวิวสด ไม่บันทึกอัตโนมัติ
+
+## License
+
+MIT

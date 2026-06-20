@@ -1,0 +1,11 @@
+# ตัวอย่างกำหนดสีเอง + เริ่มต้นที่มุมมองรายเดือน
+
+type: custom:bill-energy-card
+title: ไฟฟ้าบ้าน
+grid_entity: sensor.pzem_2phase_energy_grid
+load_entity: sensor.pzem_2phase_energy_load
+palette: custom
+grid_color: "#0C447C"
+load_color: "#D85A30"
+default_period: monthly
+monthly_months: 12
