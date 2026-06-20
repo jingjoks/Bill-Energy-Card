@@ -129,25 +129,31 @@ class BillEnergyCard extends HTMLElement {
           background:var(--card-background-color); color:var(--primary-text-color); cursor:pointer;
         }
         .bec-controls button.active { background:var(--primary-color); color:var(--text-primary-color,#fff); border-color:var(--primary-color); }
-        .bec-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
-        .bec-metric { background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:10px 12px; }
+        .bec-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(108px, 1fr)); gap:8px; margin-bottom:12px; }
+        .bec-metric { background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:10px 12px; min-width:0; }
         .bec-metric.saved { background: rgba(76,175,80,0.14); }
-        .bec-mlabel { font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; display:flex; align-items:center; gap:4px; }
-        .bec-mvalue { font-size:20px; font-weight:500; color:var(--primary-text-color); }
+        .bec-mlabel { font-size:12px; color:var(--secondary-text-color); margin-bottom:4px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bec-mlabel ha-icon { flex-shrink:0; --mdc-icon-size:16px; }
+        .bec-mvalue { font-size:19px; font-weight:500; color:var(--primary-text-color); line-height:1.25; word-break:break-word; }
         .bec-metric.saved .bec-mvalue { color:var(--success-color, #4caf50); }
-        .bec-msub { font-size:13px; color:var(--secondary-text-color); margin-top:2px; }
-        .bec-legend { display:flex; gap:14px; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; }
+        .bec-msub { font-size:12px; color:var(--secondary-text-color); margin-top:2px; }
+        .bec-legend { display:flex; gap:14px; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; flex-wrap:wrap; }
         .bec-swatch { width:11px; height:11px; border-radius:2px; display:inline-block; margin-right:4px; vertical-align:middle; }
         .bec-chartwrap { width:100%; margin-bottom:12px; }
         .bec-chartwrap svg { width:100%; height:auto; display:block; }
-        .bec-breakdown { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
-        .bec-bdcol { border:1px solid var(--divider-color); border-radius:8px; padding:8px 10px; }
+        .bec-breakdown { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:12px; }
+        .bec-bdcol { border:1px solid var(--divider-color); border-radius:8px; padding:8px 10px; min-width:0; }
         .bec-bdtitle { font-size:13px; font-weight:500; margin-bottom:6px; color:var(--primary-text-color); }
-        .bec-bdrow { display:flex; justify-content:space-between; font-size:13px; color:var(--secondary-text-color); padding:2px 0; }
-        .bec-bdrow.total { border-top:1px solid var(--divider-color); margin-top:4px; padding-top:4px; font-weight:500; color:var(--primary-text-color); }
-        .bec-settings { display:flex; flex-wrap:wrap; gap:10px; align-items:center; border-top:1px solid var(--divider-color); padding-top:10px; font-size:13px; color:var(--secondary-text-color); }
-        .bec-settings label { display:flex; align-items:center; gap:4px; }
-        .bec-settings input { border:1px solid var(--divider-color); border-radius:6px; padding:3px 6px; font-size:13px; width:72px; background:var(--card-background-color); color:var(--primary-text-color); }
+        .bec-bdrow { display:flex; flex-direction:column; gap:1px; padding:4px 0; }
+        .bec-bdrow span:first-child { font-size:12px; color:var(--secondary-text-color); }
+        .bec-bdrow span:last-child { font-size:14px; color:var(--primary-text-color); }
+        .bec-bdrow.total { border-top:1px solid var(--divider-color); margin-top:4px; padding-top:6px; }
+        .bec-bdrow.total span:first-child { font-size:13px; font-weight:500; color:var(--primary-text-color); }
+        .bec-bdrow.total span:last-child { font-size:16px; font-weight:500; color:var(--primary-text-color); }
+        .bec-settings { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; align-items:start; border-top:1px solid var(--divider-color); padding-top:10px; }
+        .bec-settings-icon { color:var(--secondary-text-color); margin-bottom:2px; }
+        .bec-settings label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--secondary-text-color); }
+        .bec-settings input { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:6px; padding:6px 8px; font-size:14px; background:var(--card-background-color); color:var(--primary-text-color); }
         .bec-msg { padding:20px 4px; text-align:center; color:var(--secondary-text-color); font-size:13px; }
       </style>
       <ha-card>
@@ -317,19 +323,19 @@ class BillEnergyCard extends HTMLElement {
     content.innerHTML = `
       <div class="bec-metrics">
         <div class="bec-metric">
-          <div class="bec-mlabel"><ha-icon icon="mdi:transmission-tower"></ha-icon>จากกริด</div>
+          <div class="bec-mlabel"><ha-icon icon="mdi:transmission-tower"></ha-icon>กริด</div>
           <div class="bec-mvalue">${fmtKwh(gridTotal)} kWh</div>
           <div class="bec-msub">${fmtBaht(gridCost.total)} บาท</div>
         </div>
         <div class="bec-metric">
-          <div class="bec-mlabel"><ha-icon icon="mdi:home-lightning-bolt"></ha-icon>โหลดรวม</div>
+          <div class="bec-mlabel"><ha-icon icon="mdi:home-lightning-bolt"></ha-icon>โหลด</div>
           <div class="bec-mvalue">${fmtKwh(loadTotal)} kWh</div>
           <div class="bec-msub">${fmtBaht(loadCost.total)} บาท</div>
         </div>
         <div class="bec-metric saved">
-          <div class="bec-mlabel"><ha-icon icon="mdi:leaf"></ha-icon>ประหยัดได้</div>
+          <div class="bec-mlabel"><ha-icon icon="mdi:leaf"></ha-icon>ประหยัด</div>
           <div class="bec-mvalue">${fmtBaht(saved)} บาท</div>
-          <div class="bec-msub">${savedPct.toFixed(1)}% ของค่าไฟเทียบเท่า</div>
+          <div class="bec-msub">${savedPct.toFixed(1)}% เทียบเท่า</div>
         </div>
       </div>
       <div class="bec-legend">
@@ -348,10 +354,10 @@ class BillEnergyCard extends HTMLElement {
         </div>
       </div>
       <div class="bec-settings">
-        <ha-icon icon="mdi:cog-outline"></ha-icon>
-        <label>Ft <input type="number" step="0.0001" class="bec-set-ft" value="${c.ft_adjustment}"></label>
-        <label>ค่าบริการ <input type="number" step="0.01" class="bec-set-service" value="${c.service_charge}"></label>
-        <label>VAT % <input type="number" step="0.1" class="bec-set-vat" value="${c.vat_percent}"></label>
+        <ha-icon class="bec-settings-icon" icon="mdi:cog-outline"></ha-icon>
+        <label>Ft (บาท/หน่วย)<input type="number" step="0.0001" class="bec-set-ft" value="${c.ft_adjustment}"></label>
+        <label>ค่าบริการ (บาท/เดือน)<input type="number" step="0.01" class="bec-set-service" value="${c.service_charge}"></label>
+        <label>VAT (%)<input type="number" step="0.1" class="bec-set-vat" value="${c.vat_percent}"></label>
       </div>
     `;
     content.querySelector('.bec-set-ft').addEventListener('change', (e) => {
