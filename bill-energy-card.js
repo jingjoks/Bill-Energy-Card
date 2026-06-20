@@ -132,22 +132,22 @@ class BillEnergyCard extends HTMLElement {
         .bec-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
         .bec-metric { background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:10px 12px; }
         .bec-metric.saved { background: rgba(76,175,80,0.14); }
-        .bec-mlabel { font-size:12px; color:var(--secondary-text-color); margin-bottom:4px; display:flex; align-items:center; gap:4px; }
-        .bec-mvalue { font-size:18px; font-weight:500; color:var(--primary-text-color); }
+        .bec-mlabel { font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; display:flex; align-items:center; gap:4px; }
+        .bec-mvalue { font-size:20px; font-weight:500; color:var(--primary-text-color); }
         .bec-metric.saved .bec-mvalue { color:var(--success-color, #4caf50); }
-        .bec-msub { font-size:12px; color:var(--secondary-text-color); margin-top:2px; }
-        .bec-legend { display:flex; gap:14px; font-size:11px; color:var(--secondary-text-color); margin-bottom:4px; }
-        .bec-swatch { width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:4px; vertical-align:middle; }
+        .bec-msub { font-size:13px; color:var(--secondary-text-color); margin-top:2px; }
+        .bec-legend { display:flex; gap:14px; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; }
+        .bec-swatch { width:11px; height:11px; border-radius:2px; display:inline-block; margin-right:4px; vertical-align:middle; }
         .bec-chartwrap { width:100%; margin-bottom:12px; }
         .bec-chartwrap svg { width:100%; height:auto; display:block; }
         .bec-breakdown { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
         .bec-bdcol { border:1px solid var(--divider-color); border-radius:8px; padding:8px 10px; }
-        .bec-bdtitle { font-size:12px; font-weight:500; margin-bottom:6px; color:var(--primary-text-color); }
-        .bec-bdrow { display:flex; justify-content:space-between; font-size:12px; color:var(--secondary-text-color); padding:2px 0; }
+        .bec-bdtitle { font-size:13px; font-weight:500; margin-bottom:6px; color:var(--primary-text-color); }
+        .bec-bdrow { display:flex; justify-content:space-between; font-size:13px; color:var(--secondary-text-color); padding:2px 0; }
         .bec-bdrow.total { border-top:1px solid var(--divider-color); margin-top:4px; padding-top:4px; font-weight:500; color:var(--primary-text-color); }
-        .bec-settings { display:flex; flex-wrap:wrap; gap:10px; align-items:center; border-top:1px solid var(--divider-color); padding-top:10px; font-size:12px; color:var(--secondary-text-color); }
+        .bec-settings { display:flex; flex-wrap:wrap; gap:10px; align-items:center; border-top:1px solid var(--divider-color); padding-top:10px; font-size:13px; color:var(--secondary-text-color); }
         .bec-settings label { display:flex; align-items:center; gap:4px; }
-        .bec-settings input { border:1px solid var(--divider-color); border-radius:6px; padding:3px 6px; font-size:12px; width:68px; background:var(--card-background-color); color:var(--primary-text-color); }
+        .bec-settings input { border:1px solid var(--divider-color); border-radius:6px; padding:3px 6px; font-size:13px; width:72px; background:var(--card-background-color); color:var(--primary-text-color); }
         .bec-msg { padding:20px 4px; text-align:center; color:var(--secondary-text-color); font-size:13px; }
       </style>
       <ha-card>
@@ -156,8 +156,8 @@ class BillEnergyCard extends HTMLElement {
             <div class="bec-title"><ha-icon icon="mdi:flash"></ha-icon>${this._config.title}</div>
             <div class="bec-controls">
               <select class="bec-palette">
-                <option value="solar">Solar</option>
-                <option value="modern">Modern</option>
+                <option value="solar">โซลาร์</option>
+                <option value="modern">มรกต</option>
                 <option value="pea">PEA</option>
                 <option value="custom">กำหนดเอง</option>
               </select>
@@ -381,26 +381,28 @@ class BillEnergyCard extends HTMLElement {
 
   _buildChartSVG(labels, gridVals, loadVals, bucketDays, colors) {
     const W = 640;
-    const H = 260;
+    const H = 300;
     const marginLeft = 8;
     const marginRight = 8;
-    const marginTop = 30;
-    const marginBottom = 24;
+    const marginTop = 46;
+    const marginBottom = 36;
     const chartW = W - marginLeft - marginRight;
     const chartH = H - marginTop - marginBottom;
     const n = Math.max(1, labels.length);
     const maxRaw = Math.max(1, ...gridVals, ...loadVals);
     const maxVal = maxRaw * 1.3;
     const groupW = chartW / n;
-    const barW = Math.min(26, groupW * 0.32);
-    const gap = 4;
+    const barW = Math.min(40, groupW * 0.38);
+    const gap = 6;
     const labelStep = n > 12 ? 3 : n > 8 ? 2 : 1;
+    const costFontSize = 20;
+    const axisFontSize = 17;
 
     let bars = '';
     let xLabels = '';
     const baseline =
       '<line x1="' + marginLeft + '" y1="' + (marginTop + chartH) + '" x2="' + (W - marginRight) +
-      '" y2="' + (marginTop + chartH) + '" stroke="var(--divider-color)" stroke-width="1"/>';
+      '" y2="' + (marginTop + chartH) + '" stroke="var(--divider-color)" stroke-width="1.5"/>';
 
     for (let i = 0; i < n; i++) {
       const cx = marginLeft + i * groupW + groupW / 2;
@@ -414,25 +416,27 @@ class BillEnergyCard extends HTMLElement {
       const ly = marginTop + chartH - lh;
       bars +=
         '<rect x="' + gx.toFixed(1) + '" y="' + gy.toFixed(1) + '" width="' + barW.toFixed(1) +
-        '" height="' + gh.toFixed(1) + '" rx="2" fill="' + colors.grid + '"/>';
+        '" height="' + gh.toFixed(1) + '" rx="3" fill="' + colors.grid + '"/>';
       bars +=
         '<rect x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" width="' + barW.toFixed(1) +
-        '" height="' + lh.toFixed(1) + '" rx="2" fill="' + colors.load + '"/>';
+        '" height="' + lh.toFixed(1) + '" rx="3" fill="' + colors.load + '"/>';
 
       if (i % labelStep === 0) {
         const gCost = this._calcCost(gv, bucketDays).total;
         const lCost = this._calcCost(lv, bucketDays).total;
+        const gLabelY = Math.max(marginTop - 10, gy - 10);
+        const lLabelY = Math.max(marginTop - 10, ly - 10);
         bars +=
-          '<text x="' + (gx + barW / 2).toFixed(1) + '" y="' + Math.max(10, gy - 4).toFixed(1) +
-          '" font-size="9" text-anchor="middle" fill="' + shade(colors.grid, -70) + '">' +
+          '<text x="' + (gx + barW / 2).toFixed(1) + '" y="' + gLabelY.toFixed(1) +
+          '" font-size="' + costFontSize + '" font-weight="600" text-anchor="middle" fill="' + shade(colors.grid, -70) + '">' +
           Math.round(gCost) + '฿</text>';
         bars +=
-          '<text x="' + (lx + barW / 2).toFixed(1) + '" y="' + Math.max(10, ly - 4).toFixed(1) +
-          '" font-size="9" text-anchor="middle" fill="' + shade(colors.load, -70) + '">' +
+          '<text x="' + (lx + barW / 2).toFixed(1) + '" y="' + lLabelY.toFixed(1) +
+          '" font-size="' + costFontSize + '" font-weight="600" text-anchor="middle" fill="' + shade(colors.load, -70) + '">' +
           Math.round(lCost) + '฿</text>';
         xLabels +=
-          '<text x="' + cx.toFixed(1) + '" y="' + (H - 6) +
-          '" font-size="9" text-anchor="middle" fill="var(--secondary-text-color)">' + labels[i] + '</text>';
+          '<text x="' + cx.toFixed(1) + '" y="' + (H - 10) +
+          '" font-size="' + axisFontSize + '" text-anchor="middle" fill="var(--secondary-text-color)">' + labels[i] + '</text>';
       }
     }
 
@@ -465,11 +469,11 @@ class BillEnergyCardEditor extends HTMLElement {
   _field(label, key, type, step) {
     const v = this._config[key];
     return (
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;">' +
-      '<label style="font-size:13px;color:var(--primary-text-color);">' + label + '</label>' +
+      '<div style="padding:6px 0;">' +
+      '<label style="display:block;font-size:13px;color:var(--secondary-text-color);margin-bottom:4px;">' + label + '</label>' +
       '<input data-key="' + key + '" type="' + type + '"' +
       (step ? ' step="' + step + '"' : '') +
-      ' value="' + v + '" style="border:1px solid var(--divider-color);border-radius:6px;padding:4px 6px;font-size:13px;width:160px;background:var(--card-background-color);color:var(--primary-text-color);"/>' +
+      ' value="' + v + '" style="display:block;width:100%;box-sizing:border-box;border:1px solid var(--divider-color);border-radius:6px;padding:8px 10px;font-size:14px;background:var(--card-background-color);color:var(--primary-text-color);"/>' +
       '</div>'
     );
   }
@@ -480,9 +484,11 @@ class BillEnergyCardEditor extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         .card-config { padding: 8px 4px; }
-        .section-title { font-size:13px; font-weight:500; margin:10px 0 2px; color:var(--primary-text-color); }
-        select { border:1px solid var(--divider-color); border-radius:6px; padding:4px 6px; font-size:13px; width:166px; background:var(--card-background-color); color:var(--primary-text-color); }
-        input[type="color"] { width:48px; height:28px; border:1px solid var(--divider-color); border-radius:6px; padding:0; }
+        .section-title { font-size:13px; font-weight:500; margin:14px 0 4px; color:var(--primary-text-color); }
+        .field-row { padding:6px 0; }
+        .field-row label { display:block; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; }
+        select { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card-background-color); color:var(--primary-text-color); }
+        input[type="color"] { width:56px; height:36px; border:1px solid var(--divider-color); border-radius:6px; padding:0; }
       </style>
       <div class="card-config">
         <div class="section-title">เซ็นเซอร์</div>
@@ -491,37 +497,37 @@ class BillEnergyCardEditor extends HTMLElement {
         <div id="load-entity-slot" style="margin:6px 0;"></div>
 
         <div class="section-title">อัตราค่าไฟ (ปรับได้ตามประกาศ กกพ.)</div>
-        ${this._field('Ft adjustment (บาท/หน่วย)', 'ft_adjustment', 'number', '0.0001')}
+        ${this._field('ค่า Ft (บาท/หน่วย)', 'ft_adjustment', 'number', '0.0001')}
         ${this._field('ค่าบริการ (บาท/เดือน)', 'service_charge', 'number', '0.01')}
-        ${this._field('VAT (%)', 'vat_percent', 'number', '0.1')}
-        ${this._field('Tier1 rate (≤ tier1_limit)', 'tier1_rate', 'number', '0.0001')}
-        ${this._field('Tier1 limit (หน่วย)', 'tier1_limit', 'number', '1')}
-        ${this._field('Tier2 rate', 'tier2_rate', 'number', '0.0001')}
-        ${this._field('Tier2 limit (หน่วย)', 'tier2_limit', 'number', '1')}
-        ${this._field('Tier3 rate (เกิน tier2_limit)', 'tier3_rate', 'number', '0.0001')}
+        ${this._field('ภาษีมูลค่าเพิ่ม VAT (%)', 'vat_percent', 'number', '0.1')}
+        ${this._field('อัตราค่าไฟ ขั้นที่ 1 (บาท/หน่วย)', 'tier1_rate', 'number', '0.0001')}
+        ${this._field('เพดานหน่วย ขั้นที่ 1 (หน่วย)', 'tier1_limit', 'number', '1')}
+        ${this._field('อัตราค่าไฟ ขั้นที่ 2 (บาท/หน่วย)', 'tier2_rate', 'number', '0.0001')}
+        ${this._field('เพดานหน่วย ขั้นที่ 2 (หน่วย)', 'tier2_limit', 'number', '1')}
+        ${this._field('อัตราค่าไฟ ขั้นที่ 3 (เกินเพดานขั้น 2)', 'tier3_rate', 'number', '0.0001')}
 
-        <div class="section-title">รูปแบบสี</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;">
-          <label style="font-size:13px;color:var(--primary-text-color);">Palette</label>
+        <div class="section-title">โทนสี</div>
+        <div class="field-row">
+          <label>โทนสี</label>
           <select id="palette-select">
-            <option value="solar">Solar</option>
-            <option value="modern">Modern</option>
-            <option value="pea">PEA</option>
+            <option value="solar">โซลาร์ (ฟ้า-เขียว)</option>
+            <option value="modern">มรกต (เขียวเข้ม)</option>
+            <option value="pea">PEA (ม่วง-ทอง)</option>
             <option value="custom">กำหนดเอง</option>
           </select>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;">
-          <label style="font-size:13px;color:var(--primary-text-color);">สีกริด</label>
+        <div class="field-row">
+          <label>สีกริด</label>
           <input id="grid-color" type="color" value="${c.grid_color}"/>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;">
-          <label style="font-size:13px;color:var(--primary-text-color);">สีโหลด</label>
+        <div class="field-row">
+          <label>สีโหลด</label>
           <input id="load-color" type="color" value="${c.load_color}"/>
         </div>
 
         <div class="section-title">มุมมองเริ่มต้น</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;">
-          <label style="font-size:13px;color:var(--primary-text-color);">Default period</label>
+        <div class="field-row">
+          <label>ช่วงเวลาเริ่มต้น</label>
           <select id="period-select">
             <option value="daily">รายวัน</option>
             <option value="monthly">รายเดือน</option>
@@ -535,7 +541,7 @@ class BillEnergyCardEditor extends HTMLElement {
     this._gridPicker = document.createElement('ha-entity-picker');
     this._gridPicker.hass = this._hass;
     this._gridPicker.value = c.grid_entity || '';
-    this._gridPicker.label = 'Grid entity (เซ็นเซอร์พลังงานจากกริด)';
+    this._gridPicker.label = 'เซ็นเซอร์: พลังงานจากกริด';
     this._gridPicker.allowCustomEntity = true;
     this._gridPicker.style.display = 'block';
     this._gridPicker.style.width = '100%';
@@ -549,7 +555,7 @@ class BillEnergyCardEditor extends HTMLElement {
     this._loadPicker = document.createElement('ha-entity-picker');
     this._loadPicker.hass = this._hass;
     this._loadPicker.value = c.load_entity || '';
-    this._loadPicker.label = 'Load entity (เซ็นเซอร์พลังงานโหลดรวม)';
+    this._loadPicker.label = 'เซ็นเซอร์: พลังงานโหลดรวม';
     this._loadPicker.allowCustomEntity = true;
     this._loadPicker.style.display = 'block';
     this._loadPicker.style.width = '100%';
