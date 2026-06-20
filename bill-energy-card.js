@@ -260,7 +260,7 @@ class BillEnergyCard extends HTMLElement {
         .bec-title-badge { width:32px; height:32px; border-radius:50%; background:rgba(var(--rgb-primary-color, 3,169,244),0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .bec-title-badge ha-icon { color:var(--primary-color); --mdc-icon-size:18px; }
         .bec-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-        .bec-controls select {
+        .bec-lang-btn, .bec-palette-btn {
           border:none; border-radius:999px; padding:6px 14px; font-size:12px;
           background:var(--secondary-background-color, rgba(127,127,127,0.08)); color:var(--primary-text-color); cursor:pointer;
         }
@@ -302,16 +302,8 @@ class BillEnergyCard extends HTMLElement {
               ${this._config.title}
             </div>
             <div class="bec-controls">
-              <select class="bec-lang">
-                <option value="th">ไทย</option>
-                <option value="en">English</option>
-              </select>
-              <select class="bec-palette">
-                <option value="solar">${t('paletteSolar')}</option>
-                <option value="modern">${t('paletteModern')}</option>
-                <option value="pea">PEA</option>
-                <option value="custom">${t('paletteCustom')}</option>
-              </select>
+              <button class="bec-lang-btn" title="Language / ภาษา">${(this._config.language || 'th').toUpperCase()}</button>
+              <button class="bec-palette-btn" title="Color theme / โทนสี">${this._config.palette === 'solar' ? t('paletteSolar') : this._config.palette === 'modern' ? t('paletteModern') : this._config.palette === 'pea' ? 'PEA' : t('paletteCustom')}</button>
               <div class="bec-period-track">
                 <button class="bec-period-btn" data-period="daily">${t('daily')}</button>
                 <button class="bec-period-btn" data-period="monthly">${t('monthly')}</button>
@@ -323,15 +315,16 @@ class BillEnergyCard extends HTMLElement {
       </ha-card>
     `;
     this._built = true;
-    root.querySelector('.bec-lang').value = this._config.language || 'th';
-    root.querySelector('.bec-lang').addEventListener('change', (e) => {
-      this._config.language = e.target.value;
+    root.querySelector('.bec-lang-btn').addEventListener('click', () => {
+      this._config.language = this._config.language === 'en' ? 'th' : 'en';
       this._buildShell();
       this._updateView();
     });
-    root.querySelector('.bec-palette').value = this._config.palette;
-    root.querySelector('.bec-palette').addEventListener('change', (e) => {
-      this._config.palette = e.target.value;
+    root.querySelector('.bec-palette-btn').addEventListener('click', () => {
+      const order = ['solar', 'modern', 'pea', 'custom'];
+      const idx = order.indexOf(this._config.palette);
+      this._config.palette = order[(idx + 1) % order.length];
+      this._buildShell();
       this._updateView();
     });
     root.querySelectorAll('.bec-period-btn').forEach((btn) => {
@@ -507,11 +500,11 @@ class BillEnergyCard extends HTMLElement {
       </div>
       <div class="bec-chartwrap">${this._buildChartSVG(labels, gridVals, loadVals, bucketDays, colors)}</div>
       <div class="bec-breakdown">
-        <div class="bec-bdcol" style="background:${tint(colors.grid, 0.07)}">
+        <div class="bec-bdcol" style="background:${tint(colors.grid, 0.09)};border:1px solid ${tint(colors.grid, 0.3)}">
           <div class="bec-bdtitle"><ha-icon icon="mdi:transmission-tower" style="color:${colors.grid}"></ha-icon>${t('detailGrid')}</div>
           ${this._buildBreakdownHTML(gridCost, colors.grid)}
         </div>
-        <div class="bec-bdcol" style="background:${tint(colors.load, 0.07)}">
+        <div class="bec-bdcol" style="background:${tint(colors.load, 0.09)};border:1px solid ${tint(colors.load, 0.3)}">
           <div class="bec-bdtitle"><ha-icon icon="mdi:home-lightning-bolt" style="color:${colors.load}"></ha-icon>${t('detailLoad')}</div>
           ${this._buildBreakdownHTML(loadCost, colors.load)}
         </div>
@@ -610,11 +603,11 @@ class BillEnergyCard extends HTMLElement {
         const lLabelY = Math.max(marginTop - 10, ly - 10);
         bars +=
           '<text x="' + (gx + barW / 2).toFixed(1) + '" y="' + gLabelY.toFixed(1) +
-          '" font-size="' + costFontSize + '" font-weight="600" text-anchor="middle" fill="' + shade(colors.grid, -70) + '">' +
+          '" font-size="' + costFontSize + '" font-weight="600" text-anchor="middle" fill="var(--primary-text-color)">' +
           Math.round(gCost) + '฿</text>';
         bars +=
           '<text x="' + (lx + barW / 2).toFixed(1) + '" y="' + lLabelY.toFixed(1) +
-          '" font-size="' + costFontSize + '" font-weight="600" text-anchor="middle" fill="' + shade(colors.load, -70) + '">' +
+          '" font-size="' + costFontSize + '" font-weight="600" text-anchor="middle" fill="var(--primary-text-color)">' +
           Math.round(lCost) + '฿</text>';
         xLabels +=
           '<text x="' + cx.toFixed(1) + '" y="' + (H - 10) +
