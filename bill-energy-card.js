@@ -772,15 +772,18 @@ class BillEnergyCardEditor extends HTMLElement {
         .field-row label { display:block; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; }
         select { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card-background-color); color:var(--primary-text-color); }
         input[type="color"] { width:56px; height:36px; border:1px solid var(--divider-color); border-radius:6px; padding:0; }
+        .btn-group { display:flex; gap:6px; flex-wrap:wrap; }
+        .btn-group button { border:1px solid var(--divider-color); border-radius:8px; padding:8px 14px; font-size:13px; background:var(--card-background-color); color:var(--primary-text-color); cursor:pointer; }
+        .btn-group button.active { background:var(--primary-color); color:#fff; border-color:var(--primary-color); }
       </style>
       <div class="card-config">
         <div class="section-title">${t('secLanguage')}</div>
         <div class="field-row">
           <label>${t('fieldLanguageLabel')}</label>
-          <select id="language-select">
-            <option value="th">ไทย</option>
-            <option value="en">English</option>
-          </select>
+          <div class="btn-group" id="language-group">
+            <button type="button" data-value="th" class="${(c.language || 'th') === 'th' ? 'active' : ''}">ไทย</button>
+            <button type="button" data-value="en" class="${c.language === 'en' ? 'active' : ''}">English</button>
+          </div>
         </div>
 
         <div class="section-title">${t('secSensors')}</div>
@@ -809,12 +812,12 @@ class BillEnergyCardEditor extends HTMLElement {
         <div class="section-title">${t('secColor')}</div>
         <div class="field-row">
           <label>${t('fieldPaletteLabel')}</label>
-          <select id="palette-select">
-            <option value="solar">${t('paletteOptSolar')}</option>
-            <option value="modern">${t('paletteOptModern')}</option>
-            <option value="pea">${t('paletteOptPea')}</option>
-            <option value="custom">${t('paletteOptCustom')}</option>
-          </select>
+          <div class="btn-group" id="palette-group">
+            <button type="button" data-value="solar" class="${c.palette === 'solar' ? 'active' : ''}">${t('paletteOptSolar')}</button>
+            <button type="button" data-value="modern" class="${c.palette === 'modern' ? 'active' : ''}">${t('paletteOptModern')}</button>
+            <button type="button" data-value="pea" class="${c.palette === 'pea' ? 'active' : ''}">${t('paletteOptPea')}</button>
+            <button type="button" data-value="custom" class="${c.palette === 'custom' ? 'active' : ''}">${t('paletteOptCustom')}</button>
+          </div>
         </div>
         <div class="field-row">
           <label>${t('fieldGridColor')}</label>
@@ -828,16 +831,13 @@ class BillEnergyCardEditor extends HTMLElement {
         <div class="section-title">${t('secDefaultView')}</div>
         <div class="field-row">
           <label>${t('fieldPeriodLabel')}</label>
-          <select id="period-select">
-            <option value="daily">${t('periodOptDaily')}</option>
-            <option value="monthly">${t('periodOptMonthly')}</option>
-          </select>
+          <div class="btn-group" id="period-group">
+            <button type="button" data-value="daily" class="${c.default_period === 'daily' ? 'active' : ''}">${t('periodOptDaily')}</button>
+            <button type="button" data-value="monthly" class="${c.default_period === 'monthly' ? 'active' : ''}">${t('periodOptMonthly')}</button>
+          </div>
         </div>
       </div>
     `;
-    this.shadowRoot.querySelector('#language-select').value = c.language || 'th';
-    this.shadowRoot.querySelector('#palette-select').value = c.palette;
-    this.shadowRoot.querySelector('#period-select').value = c.default_period;
 
     this._gridDailyPicker = this._makePicker('grid-daily-slot', 'grid_entity_daily', t('gridDailyPickerLabel'));
     this._loadDailyPicker = this._makePicker('load-daily-slot', 'load_entity_daily', t('loadDailyPickerLabel'));
@@ -846,10 +846,12 @@ class BillEnergyCardEditor extends HTMLElement {
     this._cutoffDayPicker = this._makePicker('cutoff-day-slot', 'cutoff_day_entity', t('fieldCutoffDayEntity'), ['input_number']);
     this._cutoffHourPicker = this._makePicker('cutoff-hour-slot', 'cutoff_hour_entity', t('fieldCutoffHourEntity'), ['input_number']);
 
-    this.shadowRoot.querySelector('#language-select').addEventListener('change', (e) => {
-      const newConfig = Object.assign({}, this._config, { language: e.target.value });
-      this._emitChange(newConfig);
-      this._render();
+    this.shadowRoot.querySelectorAll('#language-group button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const newConfig = Object.assign({}, this._config, { language: btn.dataset.value });
+        this._emitChange(newConfig);
+        this._render();
+      });
     });
     this.shadowRoot.querySelectorAll('input[data-key]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -859,23 +861,29 @@ class BillEnergyCardEditor extends HTMLElement {
         this._emitChange(newConfig);
       });
     });
-    this.shadowRoot.querySelector('#palette-select').addEventListener('change', (e) => {
-      const newConfig = Object.assign({}, this._config, { palette: e.target.value });
-      this._emitChange(newConfig);
+    this.shadowRoot.querySelectorAll('#palette-group button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const newConfig = Object.assign({}, this._config, { palette: btn.dataset.value });
+        this._emitChange(newConfig);
+        this._render();
+      });
     });
-    this.shadowRoot.querySelector('#period-select').addEventListener('change', (e) => {
-      const newConfig = Object.assign({}, this._config, { default_period: e.target.value });
-      this._emitChange(newConfig);
+    this.shadowRoot.querySelectorAll('#period-group button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const newConfig = Object.assign({}, this._config, { default_period: btn.dataset.value });
+        this._emitChange(newConfig);
+        this._render();
+      });
     });
     this.shadowRoot.querySelector('#grid-color').addEventListener('change', (e) => {
       const newConfig = Object.assign({}, this._config, { grid_color: e.target.value, palette: 'custom' });
-      this.shadowRoot.querySelector('#palette-select').value = 'custom';
       this._emitChange(newConfig);
+      this._render();
     });
     this.shadowRoot.querySelector('#load-color').addEventListener('change', (e) => {
       const newConfig = Object.assign({}, this._config, { load_color: e.target.value, palette: 'custom' });
-      this.shadowRoot.querySelector('#palette-select').value = 'custom';
       this._emitChange(newConfig);
+      this._render();
     });
   }
 }
