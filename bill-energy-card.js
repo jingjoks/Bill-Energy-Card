@@ -1,10 +1,9 @@
 /*
-  Bill Energy Card v1.1.1
+  Bill Energy Card v1.2.0
   Custom Lovelace card for Home Assistant
   เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) / Compare energy & cost from 2 sensors (grid vs load)
   คำนวณค่าไฟตามอัตรา PEA (Ft adjustment, ค่าบริการ, VAT) ที่ปรับตั้งค่าได้ / Configurable PEA rate calculation
-  รองรับ palette สี: solar / modern / pea / custom
-  รองรับภาษา: th (ไทย) / en (English)
+  เพิ่มการกำหนดวันที่และเวลาตัดรอบบิล (Billing cycle configuration)
 */
 
 const DEFAULT_CONFIG = {
@@ -25,7 +24,9 @@ const DEFAULT_CONFIG = {
   load_color: '#1D9E75',
   default_period: 'daily',
   daily_days: 7,
-  monthly_months: 6
+  monthly_months: 6,
+  billing_date: 1,      // วันที่ตัดรอบบิล 1-31
+  billing_time: '00:00' // เวลาตัดรอบบิล HH:MM
 };
 
 const PALETTES = {
@@ -60,10 +61,10 @@ const STRINGS = {
     ftSettingLabel: 'Ft (บาท/หน่วย)',
     serviceSettingLabel: 'ค่าบริการ (บาท/เดือน)',
     vatSettingLabel: 'VAT (%)',
-    msgConfigMissing: 'กรุณาตั้งค่า grid_entity และ load_entity ในการตั้งค่าการ์ด (แก้ไขการ์ด → ระบุเซ็นเซอร์)',
+    msgConfigMissing: 'กรุณาตั้งค่า grid_entity และ load_entity ในการตั้งค่าการ์ด',
     msgEntityNotFound: 'ไม่พบเซ็นเซอร์ที่ระบุไว้ ตรวจสอบ entity id อีกครั้ง',
     msgLoading: 'กำลังโหลดข้อมูล...',
-    msgNoData: 'ยังไม่มีข้อมูลพอสำหรับช่วงเวลานี้ (ต้องมีประวัติ statistics อย่างน้อย 2 ช่วง)',
+    msgNoData: 'ยังไม่มีข้อมูลพอสำหรับช่วงเวลานี้',
     paletteSolar: 'โซลาร์',
     paletteModern: 'มรกต',
     paletteCustom: 'กำหนดเอง',
@@ -71,7 +72,7 @@ const STRINGS = {
     fieldCardTitle: 'ชื่อการ์ด',
     gridPickerLabel: 'เซ็นเซอร์: พลังงานจากกริด',
     loadPickerLabel: 'เซ็นเซอร์: พลังงานโหลดรวม',
-    secRates: 'อัตราค่าไฟ (ปรับได้ตามประกาศ กกพ.)',
+    secRates: 'อัตราค่าไฟ',
     fieldFt: 'ค่า Ft (บาท/หน่วย)',
     fieldService: 'ค่าบริการ (บาท/เดือน)',
     fieldVat: 'ภาษีมูลค่าเพิ่ม VAT (%)',
@@ -79,7 +80,7 @@ const STRINGS = {
     fieldTier1Limit: 'เพดานหน่วย ขั้นที่ 1 (หน่วย)',
     fieldTier2Rate: 'อัตราค่าไฟ ขั้นที่ 2 (บาท/หน่วย)',
     fieldTier2Limit: 'เพดานหน่วย ขั้นที่ 2 (หน่วย)',
-    fieldTier3Rate: 'อัตราค่าไฟ ขั้นที่ 3 (เกินเพดานขั้น 2)',
+    fieldTier3Rate: 'อัตราค่าไฟ ขั้นที่ 3',
     secColor: 'โทนสี',
     fieldPaletteLabel: 'โทนสี',
     paletteOptSolar: 'โซลาร์ (ฟ้า-เขียว)',
@@ -88,10 +89,12 @@ const STRINGS = {
     paletteOptCustom: 'กำหนดเอง',
     fieldGridColor: 'สีกริด',
     fieldLoadColor: 'สีโหลด',
-    secDefaultView: 'มุมมองเริ่มต้น',
+    secDefaultView: 'มุมมองเริ่มต้นและรอบบิล',
     fieldPeriodLabel: 'ช่วงเวลาเริ่มต้น',
     periodOptDaily: 'รายวัน',
     periodOptMonthly: 'รายเดือน',
+    fieldBillingDate: 'วันที่ตัดรอบบิล (1-31)',
+    fieldBillingTime: 'เวลาตัดรอบบิล (HH:MM)',
     secLanguage: 'ภาษา',
     fieldLanguageLabel: 'ภาษา'
   },
@@ -117,10 +120,10 @@ const STRINGS = {
     ftSettingLabel: 'Ft (THB/unit)',
     serviceSettingLabel: 'Service charge (THB/month)',
     vatSettingLabel: 'VAT (%)',
-    msgConfigMissing: 'Please set grid_entity and load_entity in the card configuration (Edit card -> set sensors)',
-    msgEntityNotFound: 'Sensor not found. Please check the entity id.',
+    msgConfigMissing: 'Please set grid_entity and load_entity',
+    msgEntityNotFound: 'Sensor not found.',
     msgLoading: 'Loading data...',
-    msgNoData: 'Not enough data for this period yet (need at least 2 statistics buckets)',
+    msgNoData: 'Not enough data yet.',
     paletteSolar: 'Solar',
     paletteModern: 'Emerald',
     paletteCustom: 'Custom',
@@ -128,7 +131,7 @@ const STRINGS = {
     fieldCardTitle: 'Card title',
     gridPickerLabel: 'Sensor: grid energy',
     loadPickerLabel: 'Sensor: total load energy',
-    secRates: 'Electricity rates (adjustable per regulator announcements)',
+    secRates: 'Electricity rates',
     fieldFt: 'Ft adjustment (THB/unit)',
     fieldService: 'Service charge (THB/month)',
     fieldVat: 'VAT (%)',
@@ -136,7 +139,7 @@ const STRINGS = {
     fieldTier1Limit: 'Tier 1 limit (units)',
     fieldTier2Rate: 'Tier 2 rate (THB/unit)',
     fieldTier2Limit: 'Tier 2 limit (units)',
-    fieldTier3Rate: 'Tier 3 rate (above tier 2 limit)',
+    fieldTier3Rate: 'Tier 3 rate',
     secColor: 'Color theme',
     fieldPaletteLabel: 'Color theme',
     paletteOptSolar: 'Solar (blue-green)',
@@ -145,10 +148,12 @@ const STRINGS = {
     paletteOptCustom: 'Custom',
     fieldGridColor: 'Grid color',
     fieldLoadColor: 'Load color',
-    secDefaultView: 'Default view',
+    secDefaultView: 'Default view & Billing Cycle',
     fieldPeriodLabel: 'Default period',
     periodOptDaily: 'Daily',
     periodOptMonthly: 'Monthly',
+    fieldBillingDate: 'Billing Date (1-31)',
+    fieldBillingTime: 'Billing Time (HH:MM)',
     secLanguage: 'Language',
     fieldLanguageLabel: 'Language'
   }
@@ -344,13 +349,28 @@ class BillEnergyCard extends HTMLElement {
     if (!entityId || !this._hass) return [];
     const now = new Date();
     let start;
+    
+    // คำนวณช่วงเวลาดึงข้อมูลใหม่เพื่อรองรับ Billing Cycle
     if (period === 'daily') {
       start = new Date(now);
       start.setDate(start.getDate() - count);
       start.setHours(0, 0, 0, 0);
     } else {
-      start = new Date(now.getFullYear(), now.getMonth() - count, 1);
+      const bDate = parseInt(this._config.billing_date) || 1;
+      const bTimeStr = this._config.billing_time || '00:00';
+      const [bHour, bMin] = bTimeStr.split(':').map(Number);
+      
+      start = new Date(now);
+      // ถ้ารอบบิลปัจจุบันยังมาไม่ถึงวันที่กำหนด ให้ถอยไปอีก 1 เดือน
+      if (start.getDate() < bDate || (start.getDate() === bDate && (start.getHours() < bHour || (start.getHours() === bHour && start.getMinutes() < bMin)))) {
+          start.setMonth(start.getMonth() - count);
+      } else {
+          start.setMonth(start.getMonth() - count + 1);
+      }
+      start.setDate(bDate);
+      start.setHours(bHour || 0, bMin || 0, 0, 0);
     }
+    
     try {
       const result = await this._hass.callWS({
         type: 'recorder/statistics_during_period',
@@ -670,6 +690,8 @@ class BillEnergyCardEditor extends HTMLElement {
         .field-row label { display:block; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; }
         select { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card-background-color); color:var(--primary-text-color); }
         input[type="color"] { width:56px; height:36px; border:1px solid var(--divider-color); border-radius:6px; padding:0; }
+        .flex-row { display:flex; gap:10px; }
+        .flex-row > div { flex: 1; }
       </style>
       <div class="card-config">
         <div class="section-title">${t('secLanguage')}</div>
@@ -706,13 +728,15 @@ class BillEnergyCardEditor extends HTMLElement {
             <option value="custom">${t('paletteOptCustom')}</option>
           </select>
         </div>
-        <div class="field-row">
-          <label>${t('fieldGridColor')}</label>
-          <input id="grid-color" type="color" value="${c.grid_color}"/>
-        </div>
-        <div class="field-row">
-          <label>${t('fieldLoadColor')}</label>
-          <input id="load-color" type="color" value="${c.load_color}"/>
+        <div class="flex-row">
+            <div class="field-row">
+              <label>${t('fieldGridColor')}</label>
+              <input id="grid-color" type="color" value="${c.grid_color}"/>
+            </div>
+            <div class="field-row">
+              <label>${t('fieldLoadColor')}</label>
+              <input id="load-color" type="color" value="${c.load_color}"/>
+            </div>
         </div>
 
         <div class="section-title">${t('secDefaultView')}</div>
@@ -722,6 +746,11 @@ class BillEnergyCardEditor extends HTMLElement {
             <option value="daily">${t('periodOptDaily')}</option>
             <option value="monthly">${t('periodOptMonthly')}</option>
           </select>
+        </div>
+        
+        <div class="flex-row">
+            ${this._field(t('fieldBillingDate'), 'billing_date', 'number', '1')}
+            ${this._field(t('fieldBillingTime'), 'billing_time', 'time')}
         </div>
       </div>
     `;
@@ -798,6 +827,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'bill-energy-card',
   name: 'Bill Energy Card',
-  description: 'เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) พร้อมคำนวณ Ft/ค่าบริการ/VAT ที่ปรับตั้งค่าได้ / Compare 2 sensors with configurable PEA rate calc',
+  description: 'เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ พร้อมคำนวณ Ft/ค่าบริการ/VAT และรองรับการตั้งรอบบิล / Compare sensors with configurable PEA rate calc and billing cycles',
   preview: true
 });
