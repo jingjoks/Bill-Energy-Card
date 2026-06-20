@@ -1,5 +1,5 @@
 /*
-  Bill Energy Card v1.2.0
+  Bill Energy Card v1.1.1
   Custom Lovelace card for Home Assistant
   เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) / Compare energy & cost from 2 sensors (grid vs load)
   คำนวณค่าไฟตามอัตรา PEA (Ft adjustment, ค่าบริการ, VAT) ที่ปรับตั้งค่าได้ / Configurable PEA rate calculation
