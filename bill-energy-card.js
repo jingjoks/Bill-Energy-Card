@@ -1,16 +1,28 @@
 /*
-  Bill Energy Card v1.2.0
+  Bill Energy Card v2.0.0
   Custom Lovelace card for Home Assistant
   เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) / Compare energy & cost from 2 sensors (grid vs load)
   คำนวณค่าไฟตามอัตรา PEA (Ft adjustment, ค่าบริการ, VAT) ที่ปรับตั้งค่าได้ / Configurable PEA rate calculation
-  เพิ่มการกำหนดวันที่และเวลาตัดรอบบิล (Billing cycle configuration)
+
+  *** BREAKING CHANGE จาก v1.x ***
+  เลิกใช้ grid_entity/load_entity + billing_cycle_day (คำนวณรอบบิลจาก HA statistics เอง)
+  เปลี่ยนเป็นอ่านจาก 4 sensor ที่ผู้ใช้ reset ค่าเองตรงเวลาจริง (เช่นผ่าน Node-RED):
+    grid_entity_daily / load_entity_daily  — reset ทุกเที่ยงคืน
+    grid_entity_cycle / load_entity_cycle  — reset ตรงเวลาที่ PEA ตัดรอบบิลจริง
+  การ์ดตรวจจับรอบจากค่าที่ "ตกลงกะทันหัน" ใน LTS hourly statistics ของ sensor นั้นๆ เอง
+  ไม่ต้องรู้วัน/เวลาตัดรอบล่วงหน้าอีกต่อไป
+
+  รองรับ palette สี: solar / modern / pea / custom
+  รองรับภาษา: th (ไทย) / en (English)
 */
 
 const DEFAULT_CONFIG = {
   title: 'Bill Energy Card',
   language: 'th',
-  grid_entity: '',
-  load_entity: '',
+  grid_entity_daily: '',
+  load_entity_daily: '',
+  grid_entity_cycle: '',
+  load_entity_cycle: '',
   ft_adjustment: 0.1623,
   service_charge: 24.62,
   vat_percent: 7,
@@ -24,9 +36,7 @@ const DEFAULT_CONFIG = {
   load_color: '#1D9E75',
   default_period: 'daily',
   daily_days: 7,
-  monthly_months: 6,
-  billing_date: 1,      // วันที่ตัดรอบบิล 1-31
-  billing_time: '00:00' // เวลาตัดรอบบิล HH:MM
+  cycle_count: 6
 };
 
 const PALETTES = {
@@ -61,18 +71,21 @@ const STRINGS = {
     ftSettingLabel: 'Ft (บาท/หน่วย)',
     serviceSettingLabel: 'ค่าบริการ (บาท/เดือน)',
     vatSettingLabel: 'VAT (%)',
-    msgConfigMissing: 'กรุณาตั้งค่า grid_entity และ load_entity ในการตั้งค่าการ์ด',
+    msgConfigMissing: 'กรุณาตั้งค่าเซ็นเซอร์ในการตั้งค่าการ์ดให้ครบ (แก้ไขการ์ด → ระบุเซ็นเซอร์ของมุมมองที่ใช้อยู่)',
     msgEntityNotFound: 'ไม่พบเซ็นเซอร์ที่ระบุไว้ ตรวจสอบ entity id อีกครั้ง',
     msgLoading: 'กำลังโหลดข้อมูล...',
-    msgNoData: 'ยังไม่มีข้อมูลพอสำหรับช่วงเวลานี้',
+    msgNoData: 'ยังไม่พบรอบที่ตัดเสร็จในประวัติของเซ็นเซอร์ (เซ็นเซอร์ต้อง reset ค่าเองอย่างน้อย 1 ครั้งถึงจะเริ่มมีข้อมูลให้แสดง)',
     paletteSolar: 'โซลาร์',
     paletteModern: 'มรกต',
     paletteCustom: 'กำหนดเอง',
-    secSensors: 'เซ็นเซอร์',
+    secSensors: 'เซ็นเซอร์รายวัน',
+    secSensorsCycle: 'เซ็นเซอร์รอบบิล',
     fieldCardTitle: 'ชื่อการ์ด',
-    gridPickerLabel: 'เซ็นเซอร์: พลังงานจากกริด',
-    loadPickerLabel: 'เซ็นเซอร์: พลังงานโหลดรวม',
-    secRates: 'อัตราค่าไฟ',
+    gridDailyPickerLabel: 'เซ็นเซอร์รายวัน: พลังงานจากกริด (reset เที่ยงคืน)',
+    loadDailyPickerLabel: 'เซ็นเซอร์รายวัน: พลังงานโหลดรวม (reset เที่ยงคืน)',
+    gridCyclePickerLabel: 'เซ็นเซอร์รอบบิล: พลังงานจากกริด (reset ตามรอบบิล)',
+    loadCyclePickerLabel: 'เซ็นเซอร์รอบบิล: พลังงานโหลดรวม (reset ตามรอบบิล)',
+    secRates: 'อัตราค่าไฟ (ปรับได้ตามประกาศ กกพ.)',
     fieldFt: 'ค่า Ft (บาท/หน่วย)',
     fieldService: 'ค่าบริการ (บาท/เดือน)',
     fieldVat: 'ภาษีมูลค่าเพิ่ม VAT (%)',
@@ -80,7 +93,7 @@ const STRINGS = {
     fieldTier1Limit: 'เพดานหน่วย ขั้นที่ 1 (หน่วย)',
     fieldTier2Rate: 'อัตราค่าไฟ ขั้นที่ 2 (บาท/หน่วย)',
     fieldTier2Limit: 'เพดานหน่วย ขั้นที่ 2 (หน่วย)',
-    fieldTier3Rate: 'อัตราค่าไฟ ขั้นที่ 3',
+    fieldTier3Rate: 'อัตราค่าไฟ ขั้นที่ 3 (เกินเพดานขั้น 2)',
     secColor: 'โทนสี',
     fieldPaletteLabel: 'โทนสี',
     paletteOptSolar: 'โซลาร์ (ฟ้า-เขียว)',
@@ -89,12 +102,10 @@ const STRINGS = {
     paletteOptCustom: 'กำหนดเอง',
     fieldGridColor: 'สีกริด',
     fieldLoadColor: 'สีโหลด',
-    secDefaultView: 'มุมมองเริ่มต้นและรอบบิล',
+    secDefaultView: 'มุมมองเริ่มต้น',
     fieldPeriodLabel: 'ช่วงเวลาเริ่มต้น',
     periodOptDaily: 'รายวัน',
     periodOptMonthly: 'รายเดือน',
-    fieldBillingDate: 'วันที่ตัดรอบบิล (1-31)',
-    fieldBillingTime: 'เวลาตัดรอบบิล (HH:MM)',
     secLanguage: 'ภาษา',
     fieldLanguageLabel: 'ภาษา'
   },
@@ -120,18 +131,21 @@ const STRINGS = {
     ftSettingLabel: 'Ft (THB/unit)',
     serviceSettingLabel: 'Service charge (THB/month)',
     vatSettingLabel: 'VAT (%)',
-    msgConfigMissing: 'Please set grid_entity and load_entity',
-    msgEntityNotFound: 'Sensor not found.',
+    msgConfigMissing: 'Please configure the sensors needed for this view in the card settings (Edit card -> set sensors)',
+    msgEntityNotFound: 'Sensor not found. Please check the entity id.',
     msgLoading: 'Loading data...',
-    msgNoData: 'Not enough data yet.',
+    msgNoData: "No completed cycles found yet in this sensor's history (the sensor needs to reset at least once before data appears)",
     paletteSolar: 'Solar',
     paletteModern: 'Emerald',
     paletteCustom: 'Custom',
-    secSensors: 'Sensors',
+    secSensors: 'Daily sensors',
+    secSensorsCycle: 'Billing cycle sensors',
     fieldCardTitle: 'Card title',
-    gridPickerLabel: 'Sensor: grid energy',
-    loadPickerLabel: 'Sensor: total load energy',
-    secRates: 'Electricity rates',
+    gridDailyPickerLabel: 'Daily sensor: grid energy (resets at midnight)',
+    loadDailyPickerLabel: 'Daily sensor: total load energy (resets at midnight)',
+    gridCyclePickerLabel: 'Cycle sensor: grid energy (resets on your billing cycle)',
+    loadCyclePickerLabel: 'Cycle sensor: total load energy (resets on your billing cycle)',
+    secRates: 'Electricity rates (adjustable per regulator announcements)',
     fieldFt: 'Ft adjustment (THB/unit)',
     fieldService: 'Service charge (THB/month)',
     fieldVat: 'VAT (%)',
@@ -139,7 +153,7 @@ const STRINGS = {
     fieldTier1Limit: 'Tier 1 limit (units)',
     fieldTier2Rate: 'Tier 2 rate (THB/unit)',
     fieldTier2Limit: 'Tier 2 limit (units)',
-    fieldTier3Rate: 'Tier 3 rate',
+    fieldTier3Rate: 'Tier 3 rate (above tier 2 limit)',
     secColor: 'Color theme',
     fieldPaletteLabel: 'Color theme',
     paletteOptSolar: 'Solar (blue-green)',
@@ -148,12 +162,10 @@ const STRINGS = {
     paletteOptCustom: 'Custom',
     fieldGridColor: 'Grid color',
     fieldLoadColor: 'Load color',
-    secDefaultView: 'Default view & Billing Cycle',
+    secDefaultView: 'Default view',
     fieldPeriodLabel: 'Default period',
     periodOptDaily: 'Daily',
     periodOptMonthly: 'Monthly',
-    fieldBillingDate: 'Billing Date (1-31)',
-    fieldBillingTime: 'Billing Time (HH:MM)',
     secLanguage: 'Language',
     fieldLanguageLabel: 'Language'
   }
@@ -292,7 +304,9 @@ class BillEnergyCard extends HTMLElement {
         .bec-bdrow { display:flex; flex-direction:column; gap:1px; padding:4px 0; }
         .bec-bdrow span:first-child { font-size:12px; color:var(--secondary-text-color); }
         .bec-bdrow span:last-child { font-size:14px; color:var(--primary-text-color); }
-        .bec-bdtotal { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:8px 14px; border-radius:999px; font-weight:500; font-size:13px; color:var(--primary-text-color); }
+        .bec-bdtotal { display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:8px; padding:10px 14px; border-radius:16px; color:var(--primary-text-color); }
+        .bec-bdtotal span:first-child { font-size:12px; font-weight:500; color:var(--secondary-text-color); }
+        .bec-bdtotal span:last-child { font-size:17px; font-weight:600; }
         .bec-settings { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; align-items:start; border-top:1px solid var(--divider-color); padding-top:14px; }
         .bec-settings-icon { color:var(--secondary-text-color); margin-bottom:2px; }
         .bec-settings label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--secondary-text-color); }
@@ -345,97 +359,102 @@ class BillEnergyCard extends HTMLElement {
     if (content) content.innerHTML = '<div class="bec-msg">' + text + '</div>';
   }
 
-  async _fetchSeries(entityId, period, count) {
+  async _fetchHourlyRows(entityId, start, end) {
     if (!entityId || !this._hass) return [];
-    const now = new Date();
-    let start;
-    
-    // คำนวณช่วงเวลาดึงข้อมูลใหม่เพื่อรองรับ Billing Cycle
-    if (period === 'daily') {
-      start = new Date(now);
-      start.setDate(start.getDate() - count);
-      start.setHours(0, 0, 0, 0);
-    } else {
-      const bDate = parseInt(this._config.billing_date) || 1;
-      const bTimeStr = this._config.billing_time || '00:00';
-      const [bHour, bMin] = bTimeStr.split(':').map(Number);
-      
-      start = new Date(now);
-      // ถ้ารอบบิลปัจจุบันยังมาไม่ถึงวันที่กำหนด ให้ถอยไปอีก 1 เดือน
-      if (start.getDate() < bDate || (start.getDate() === bDate && (start.getHours() < bHour || (start.getHours() === bHour && start.getMinutes() < bMin)))) {
-          start.setMonth(start.getMonth() - count);
-      } else {
-          start.setMonth(start.getMonth() - count + 1);
-      }
-      start.setDate(bDate);
-      start.setHours(bHour || 0, bMin || 0, 0, 0);
-    }
-    
     try {
       const result = await this._hass.callWS({
         type: 'recorder/statistics_during_period',
         start_time: start.toISOString(),
-        end_time: now.toISOString(),
+        end_time: end.toISOString(),
         statistic_ids: [entityId],
-        period: period === 'daily' ? 'day' : 'month',
-        types: ['sum']
+        period: 'hour',
+        types: ['state', 'sum']
       });
       const rows = (result && result[entityId]) || [];
-      const out = [];
-      for (let i = 1; i < rows.length; i++) {
-        const a = rows[i].sum;
-        const b = rows[i - 1].sum;
-        if (a == null || b == null) continue;
-        out.push({ start: rows[i].start, value: Math.max(0, a - b) });
-      }
-      if (out.length > 0) return out.slice(-count);
-      return await this._fetchHistoryFallback(entityId, count);
+      if (rows.length > 1) return rows.map((r) => ({ start: r.start, state: r.state, sum: r.sum }));
+      return await this._hourlyRowsFallback(entityId, start, end);
     } catch (e) {
-      return await this._fetchHistoryFallback(entityId, count);
+      return await this._hourlyRowsFallback(entityId, start, end);
     }
   }
 
-  async _fetchHistoryFallback(entityId, count) {
+  async _hourlyRowsFallback(entityId, start, end) {
     try {
-      const now = new Date();
-      const start = new Date(now);
-      start.setDate(start.getDate() - count - 1);
       const path =
         'history/period/' +
         start.toISOString() +
         '?filter_entity_id=' +
         entityId +
         '&end_time=' +
-        now.toISOString() +
+        end.toISOString() +
         '&minimal_response';
       const history = await this._hass.callApi('GET', path);
       const states = (history && history[0]) || [];
-      const byDay = {};
+      const byHour = {};
       states.forEach((s) => {
-        const day = s.last_changed.slice(0, 10);
+        const hour = s.last_changed.slice(0, 13);
         const val = parseFloat(s.state);
-        if (!isNaN(val)) byDay[day] = val;
+        if (!isNaN(val)) byHour[hour] = val;
       });
-      const days = Object.keys(byDay).sort();
-      const out = [];
-      for (let i = 1; i < days.length; i++) {
-        out.push({ start: days[i], value: Math.max(0, byDay[days[i]] - byDay[days[i - 1]]) });
-      }
-      return out.slice(-count);
+      const hours = Object.keys(byHour).sort();
+      let sum = 0;
+      let prevState = null;
+      const rows = [];
+      hours.forEach((h) => {
+        const state = byHour[h];
+        if (prevState != null) sum += state >= prevState ? state - prevState : state;
+        rows.push({ start: h + ':00:00.000Z', state, sum });
+        prevState = state;
+      });
+      return rows;
     } catch (e) {
       return [];
     }
   }
 
-  _formatLabel(isoStart, period) {
+  _detectSegments(rows) {
+    if (!rows.length) return [];
+    const segments = [];
+    let segStart = rows[0].start;
+    let segSum = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const a = rows[i].sum;
+      const b = rows[i - 1].sum;
+      const delta = a != null && b != null ? Math.max(0, a - b) : 0;
+      const resetHappened = rows[i].state != null && rows[i - 1].state != null && rows[i].state < rows[i - 1].state;
+      if (resetHappened) {
+        segments.push({ start: segStart, end: rows[i - 1].start, value: segSum });
+        segStart = rows[i].start;
+        segSum = delta;
+      } else {
+        segSum += delta;
+      }
+    }
+    segments.push({ start: segStart, end: rows[rows.length - 1].start, value: segSum, current: true });
+    return segments;
+  }
+
+  async _fetchSegments(entityId, lookbackDays, count) {
+    if (!entityId || !this._hass) return [];
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - lookbackDays);
+    const rows = await this._fetchHourlyRows(entityId, start, end);
+    const segments = this._detectSegments(rows);
+    return segments.slice(-count).map((s) => {
+      const startMs = new Date(s.start).getTime();
+      const endMs = new Date(s.end).getTime();
+      const days = Math.max(1, Math.round((endMs - startMs) / 86400000) || 1);
+      return { start: s.start, value: s.value, days };
+    });
+  }
+
+  _formatLabel(isoStart) {
     const d = new Date(isoStart);
     const months = this._config.language === 'en' ? EN_MONTHS : THAI_MONTHS;
-    if (period === 'daily') {
-      return this._config.language === 'en'
-        ? months[d.getMonth()] + ' ' + d.getDate()
-        : d.getDate() + ' ' + months[d.getMonth()];
-    }
-    return months[d.getMonth()];
+    return this._config.language === 'en'
+      ? months[d.getMonth()] + ' ' + d.getDate()
+      : d.getDate() + ' ' + months[d.getMonth()];
   }
 
   async _updateView() {
@@ -445,19 +464,22 @@ class BillEnergyCard extends HTMLElement {
       btn.classList.toggle('active', btn.dataset.period === this._period);
     });
     const c = this._config;
-    if (!c.grid_entity || !c.load_entity) {
+    const gridKey = this._period === 'daily' ? 'grid_entity_daily' : 'grid_entity_cycle';
+    const loadKey = this._period === 'daily' ? 'load_entity_daily' : 'load_entity_cycle';
+    if (!c[gridKey] || !c[loadKey]) {
       this._showMessage(this._t('msgConfigMissing'));
       return;
     }
-    if (!this._hass.states[c.grid_entity] || !this._hass.states[c.load_entity]) {
+    if (!this._hass.states[c[gridKey]] || !this._hass.states[c[loadKey]]) {
       this._showMessage(this._t('msgEntityNotFound'));
       return;
     }
     this._showMessage(this._t('msgLoading'));
-    const count = this._period === 'daily' ? c.daily_days : c.monthly_months;
+    const count = this._period === 'daily' ? c.daily_days : c.cycle_count;
+    const lookbackDays = this._period === 'daily' ? count + 3 : count * 32 + 10;
     const [gridSeries, loadSeries] = await Promise.all([
-      this._fetchSeries(c.grid_entity, this._period, count),
-      this._fetchSeries(c.load_entity, this._period, count)
+      this._fetchSegments(c[gridKey], lookbackDays, count),
+      this._fetchSegments(c[loadKey], lookbackDays, count)
     ]);
     const n = Math.max(gridSeries.length, loadSeries.length);
     if (n === 0) {
@@ -467,23 +489,24 @@ class BillEnergyCard extends HTMLElement {
     const labels = [];
     const gridVals = [];
     const loadVals = [];
+    const daysArr = [];
     for (let i = 0; i < n; i++) {
       const g = gridSeries[i];
       const l = loadSeries[i];
       const ref = g || l;
-      labels.push(this._formatLabel(ref.start, this._period));
+      labels.push(this._formatLabel(ref.start));
       gridVals.push(g ? g.value : 0);
       loadVals.push(l ? l.value : 0);
+      daysArr.push(ref.days || 1);
     }
-    this._renderData(labels, gridVals, loadVals);
+    this._renderData(labels, gridVals, loadVals, daysArr);
   }
 
-  _renderData(labels, gridVals, loadVals) {
+  _renderData(labels, gridVals, loadVals, daysArr) {
     const c = this._config;
     const t = (k) => this._t(k);
     const colors = this._getColors();
-    const bucketDays = this._period === 'daily' ? 1 : 30;
-    const totalDays = this._period === 'daily' ? labels.length : c.monthly_months * 30;
+    const totalDays = daysArr.reduce((s, d) => s + d, 0) || labels.length;
     const gridTotal = gridVals.reduce((s, v) => s + v, 0);
     const loadTotal = loadVals.reduce((s, v) => s + v, 0);
     const gridCost = this._calcCost(gridTotal, totalDays);
@@ -518,7 +541,7 @@ class BillEnergyCard extends HTMLElement {
         <span><span class="bec-swatch" style="background:${colors.grid}"></span>${t('fromGrid')}</span>
         <span><span class="bec-swatch" style="background:${colors.load}"></span>${t('totalLoad')}</span>
       </div>
-      <div class="bec-chartwrap">${this._buildChartSVG(labels, gridVals, loadVals, bucketDays, colors)}</div>
+      <div class="bec-chartwrap">${this._buildChartSVG(labels, gridVals, loadVals, daysArr, colors)}</div>
       <div class="bec-breakdown">
         <div class="bec-bdcol" style="background:${tint(colors.grid, 0.09)};border:1px solid ${tint(colors.grid, 0.3)}">
           <div class="bec-bdtitle"><ha-icon icon="mdi:transmission-tower" style="color:${colors.grid}"></ha-icon>${t('detailGrid')}</div>
@@ -538,15 +561,15 @@ class BillEnergyCard extends HTMLElement {
     `;
     content.querySelector('.bec-set-ft').addEventListener('change', (e) => {
       c.ft_adjustment = parseFloat(e.target.value) || 0;
-      this._renderData(labels, gridVals, loadVals);
+      this._renderData(labels, gridVals, loadVals, daysArr);
     });
     content.querySelector('.bec-set-service').addEventListener('change', (e) => {
       c.service_charge = parseFloat(e.target.value) || 0;
-      this._renderData(labels, gridVals, loadVals);
+      this._renderData(labels, gridVals, loadVals, daysArr);
     });
     content.querySelector('.bec-set-vat').addEventListener('change', (e) => {
       c.vat_percent = parseFloat(e.target.value) || 0;
-      this._renderData(labels, gridVals, loadVals);
+      this._renderData(labels, gridVals, loadVals, daysArr);
     });
   }
 
@@ -577,7 +600,7 @@ class BillEnergyCard extends HTMLElement {
     );
   }
 
-  _buildChartSVG(labels, gridVals, loadVals, bucketDays, colors) {
+  _buildChartSVG(labels, gridVals, loadVals, daysArr, colors) {
     const W = 640;
     const H = 300;
     const marginLeft = 8;
@@ -617,8 +640,8 @@ class BillEnergyCard extends HTMLElement {
       bars += '<path d="' + this._roundedTopPath(lx, ly, barW, lh, barRadius) + '" fill="' + colors.load + '"/>';
 
       if (i % labelStep === 0) {
-        const gCost = this._calcCost(gv, bucketDays).total;
-        const lCost = this._calcCost(lv, bucketDays).total;
+        const gCost = this._calcCost(gv, daysArr[i] || 1).total;
+        const lCost = this._calcCost(lv, daysArr[i] || 1).total;
         const gLabelY = Math.max(marginTop - 10, gy - 10);
         const lLabelY = Math.max(marginTop - 10, ly - 10);
         bars +=
@@ -650,8 +673,10 @@ class BillEnergyCardEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (this._gridPicker) this._gridPicker.hass = hass;
-    if (this._loadPicker) this._loadPicker.hass = hass;
+    if (this._gridDailyPicker) this._gridDailyPicker.hass = hass;
+    if (this._loadDailyPicker) this._loadDailyPicker.hass = hass;
+    if (this._gridCyclePicker) this._gridCyclePicker.hass = hass;
+    if (this._loadCyclePicker) this._loadCyclePicker.hass = hass;
   }
 
   _t(key) {
@@ -664,6 +689,23 @@ class BillEnergyCardEditor extends HTMLElement {
     const event = new Event('config-changed', { bubbles: true, composed: true });
     event.detail = { config: newConfig };
     this.dispatchEvent(event);
+  }
+
+  _makePicker(slotId, configKey, label) {
+    const picker = document.createElement('ha-entity-picker');
+    picker.hass = this._hass;
+    picker.value = this._config[configKey] || '';
+    picker.label = label;
+    picker.allowCustomEntity = true;
+    picker.style.display = 'block';
+    picker.style.width = '100%';
+    picker.addEventListener('value-changed', (e) => {
+      e.stopPropagation();
+      const newConfig = Object.assign({}, this._config, { [configKey]: e.detail.value || '' });
+      this._emitChange(newConfig);
+    });
+    this.shadowRoot.querySelector('#' + slotId).appendChild(picker);
+    return picker;
   }
 
   _field(label, key, type, step) {
@@ -690,8 +732,6 @@ class BillEnergyCardEditor extends HTMLElement {
         .field-row label { display:block; font-size:13px; color:var(--secondary-text-color); margin-bottom:4px; }
         select { display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--card-background-color); color:var(--primary-text-color); }
         input[type="color"] { width:56px; height:36px; border:1px solid var(--divider-color); border-radius:6px; padding:0; }
-        .flex-row { display:flex; gap:10px; }
-        .flex-row > div { flex: 1; }
       </style>
       <div class="card-config">
         <div class="section-title">${t('secLanguage')}</div>
@@ -705,8 +745,12 @@ class BillEnergyCardEditor extends HTMLElement {
 
         <div class="section-title">${t('secSensors')}</div>
         ${this._field(t('fieldCardTitle'), 'title', 'text')}
-        <div id="grid-entity-slot" style="margin:6px 0;"></div>
-        <div id="load-entity-slot" style="margin:6px 0;"></div>
+        <div id="grid-daily-slot" style="margin:6px 0;"></div>
+        <div id="load-daily-slot" style="margin:6px 0;"></div>
+
+        <div class="section-title">${t('secSensorsCycle')}</div>
+        <div id="grid-cycle-slot" style="margin:6px 0;"></div>
+        <div id="load-cycle-slot" style="margin:6px 0;"></div>
 
         <div class="section-title">${t('secRates')}</div>
         ${this._field(t('fieldFt'), 'ft_adjustment', 'number', '0.0001')}
@@ -728,15 +772,13 @@ class BillEnergyCardEditor extends HTMLElement {
             <option value="custom">${t('paletteOptCustom')}</option>
           </select>
         </div>
-        <div class="flex-row">
-            <div class="field-row">
-              <label>${t('fieldGridColor')}</label>
-              <input id="grid-color" type="color" value="${c.grid_color}"/>
-            </div>
-            <div class="field-row">
-              <label>${t('fieldLoadColor')}</label>
-              <input id="load-color" type="color" value="${c.load_color}"/>
-            </div>
+        <div class="field-row">
+          <label>${t('fieldGridColor')}</label>
+          <input id="grid-color" type="color" value="${c.grid_color}"/>
+        </div>
+        <div class="field-row">
+          <label>${t('fieldLoadColor')}</label>
+          <input id="load-color" type="color" value="${c.load_color}"/>
         </div>
 
         <div class="section-title">${t('secDefaultView')}</div>
@@ -747,44 +789,16 @@ class BillEnergyCardEditor extends HTMLElement {
             <option value="monthly">${t('periodOptMonthly')}</option>
           </select>
         </div>
-        
-        <div class="flex-row">
-            ${this._field(t('fieldBillingDate'), 'billing_date', 'number', '1')}
-            ${this._field(t('fieldBillingTime'), 'billing_time', 'time')}
-        </div>
       </div>
     `;
     this.shadowRoot.querySelector('#language-select').value = c.language || 'th';
     this.shadowRoot.querySelector('#palette-select').value = c.palette;
     this.shadowRoot.querySelector('#period-select').value = c.default_period;
 
-    this._gridPicker = document.createElement('ha-entity-picker');
-    this._gridPicker.hass = this._hass;
-    this._gridPicker.value = c.grid_entity || '';
-    this._gridPicker.label = t('gridPickerLabel');
-    this._gridPicker.allowCustomEntity = true;
-    this._gridPicker.style.display = 'block';
-    this._gridPicker.style.width = '100%';
-    this._gridPicker.addEventListener('value-changed', (e) => {
-      e.stopPropagation();
-      const newConfig = Object.assign({}, this._config, { grid_entity: e.detail.value || '' });
-      this._emitChange(newConfig);
-    });
-    this.shadowRoot.querySelector('#grid-entity-slot').appendChild(this._gridPicker);
-
-    this._loadPicker = document.createElement('ha-entity-picker');
-    this._loadPicker.hass = this._hass;
-    this._loadPicker.value = c.load_entity || '';
-    this._loadPicker.label = t('loadPickerLabel');
-    this._loadPicker.allowCustomEntity = true;
-    this._loadPicker.style.display = 'block';
-    this._loadPicker.style.width = '100%';
-    this._loadPicker.addEventListener('value-changed', (e) => {
-      e.stopPropagation();
-      const newConfig = Object.assign({}, this._config, { load_entity: e.detail.value || '' });
-      this._emitChange(newConfig);
-    });
-    this.shadowRoot.querySelector('#load-entity-slot').appendChild(this._loadPicker);
+    this._gridDailyPicker = this._makePicker('grid-daily-slot', 'grid_entity_daily', t('gridDailyPickerLabel'));
+    this._loadDailyPicker = this._makePicker('load-daily-slot', 'load_entity_daily', t('loadDailyPickerLabel'));
+    this._gridCyclePicker = this._makePicker('grid-cycle-slot', 'grid_entity_cycle', t('gridCyclePickerLabel'));
+    this._loadCyclePicker = this._makePicker('load-cycle-slot', 'load_entity_cycle', t('loadCyclePickerLabel'));
 
     this.shadowRoot.querySelector('#language-select').addEventListener('change', (e) => {
       const newConfig = Object.assign({}, this._config, { language: e.target.value });
@@ -827,6 +841,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'bill-energy-card',
   name: 'Bill Energy Card',
-  description: 'เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ พร้อมคำนวณ Ft/ค่าบริการ/VAT และรองรับการตั้งรอบบิล / Compare sensors with configurable PEA rate calc and billing cycles',
+  description: 'เปรียบเทียบพลังงานและค่าไฟฟ้าจาก 2 เซ็นเซอร์ (กริด vs โหลด) พร้อมคำนวณ Ft/ค่าบริการ/VAT ที่ปรับตั้งค่าได้ / Compare 2 sensors with configurable PEA rate calc',
   preview: true
 });

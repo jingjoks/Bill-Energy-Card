@@ -1,5 +1,7 @@
-# ตัวอย่างพื้นฐาน — ใช้ค่าเริ่มต้นทั้งหมด (อัตรา PEA งวด พ.ค.-ส.ค. 2569, palette: solar, มุมมองรายวัน)
+# ตัวอย่างพื้นฐาน — ต้องเตรียม sensor reset เอง 4 ตัวไว้ก่อน (ดู README หัวข้อ "สถาปัตยกรรม")
 
 type: custom:bill-energy-card
-grid_entity: sensor.pzem_2phase_energy_grid
-load_entity: sensor.pzem_2phase_energy_load
+grid_entity_daily: sensor.grid_energy_daily
+load_entity_daily: sensor.load_energy_daily
+grid_entity_cycle: sensor.grid_energy_cycle
+load_entity_cycle: sensor.load_energy_cycle

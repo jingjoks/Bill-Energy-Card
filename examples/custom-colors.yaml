@@ -2,10 +2,12 @@
 
 type: custom:bill-energy-card
 title: ไฟฟ้าบ้าน
-grid_entity: sensor.pzem_2phase_energy_grid
-load_entity: sensor.pzem_2phase_energy_load
+grid_entity_daily: sensor.grid_energy_daily
+load_entity_daily: sensor.load_energy_daily
+grid_entity_cycle: sensor.grid_energy_cycle
+load_entity_cycle: sensor.load_energy_cycle
 palette: custom
 grid_color: "#0C447C"
 load_color: "#D85A30"
 default_period: monthly
-monthly_months: 12
+cycle_count: 12

@@ -1,9 +1,11 @@
-# ตัวอย่างปรับอัตราค่าไฟใหม่ทั้งหมด — ใช้เวลาประกาศ กกพ. งวดใหม่ออก (Ft เปลี่ยนทุก 4 เดือน)
+# ตัวอย่างปรับอัตราค่าไฟใหม่ — ใช้เวลาประกาศ กกพ. งวดใหม่ออก (Ft เปลี่ยนทุก 4 เดือน)
 # ตัวเลขด้านล่างเป็นตัวอย่างสมมติ ให้แทนที่ด้วยค่าจริงจากประกาศงวดนั้น
 
 type: custom:bill-energy-card
-grid_entity: sensor.pzem_2phase_energy_grid
-load_entity: sensor.pzem_2phase_energy_load
+grid_entity_daily: sensor.grid_energy_daily
+load_entity_daily: sensor.load_energy_daily
+grid_entity_cycle: sensor.grid_energy_cycle
+load_entity_cycle: sensor.load_energy_cycle
 ft_adjustment: 0.39
 service_charge: 24.62
 vat_percent: 7

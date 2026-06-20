@@ -1,0 +1,9 @@
+# ตัวอย่างกำหนดวันตัดรอบบิลให้ตรงกับ PEA จริง
+# เช็ควันตัดรอบจริงได้จากใบแจ้งหนี้ค่าไฟ (ปกติจะมีระบุ "รอบบิล" หรือช่วงวันที่บนใบแจ้งหนี้)
+
+type: custom:bill-energy-card
+grid_entity: sensor.pzem_2phase_energy_grid
+load_entity: sensor.pzem_2phase_energy_load
+billing_cycle_day: 5
+default_period: monthly
+monthly_months: 6
