@@ -288,10 +288,9 @@ class BillEnergyCard extends HTMLElement {
         .bec-title { font-size:16px; font-weight:500; color:var(--primary-text-color); display:flex; align-items:center; gap:10px; }
         .bec-title-badge { width:32px; height:32px; border-radius:50%; background:rgba(var(--rgb-primary-color, 3,169,244),0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .bec-title-badge ha-icon { color:var(--primary-color); --mdc-icon-size:18px; }
-        .bec-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
         .bec-lang-btn, .bec-palette-btn {
-          border:none; border-radius:999px; padding:6px 14px; font-size:12px;
-          background:var(--secondary-background-color, rgba(127,127,127,0.08)); color:var(--primary-text-color); cursor:pointer;
+          display:block; width:100%; box-sizing:border-box; border:1px solid var(--divider-color); border-radius:999px; padding:6px 14px; font-size:13px; text-align:center;
+          background:var(--card-background-color); color:var(--primary-text-color); cursor:pointer;
         }
         .bec-period-track { display:inline-flex; background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:999px; padding:3px; gap:2px; }
         .bec-period-btn { border:none; border-radius:999px; padding:6px 14px; font-size:12px; background:transparent; color:var(--secondary-text-color); cursor:pointer; }
@@ -332,13 +331,9 @@ class BillEnergyCard extends HTMLElement {
               <span class="bec-title-badge"><ha-icon icon="mdi:flash"></ha-icon></span>
               ${this._config.title}
             </div>
-            <div class="bec-controls">
-              <button class="bec-lang-btn" title="Language / ภาษา">${(this._config.language || 'th').toUpperCase()}</button>
-              <button class="bec-palette-btn" title="Color theme / โทนสี">${this._config.palette === 'solar' ? t('paletteSolar') : this._config.palette === 'modern' ? t('paletteModern') : this._config.palette === 'pea' ? 'PEA' : t('paletteCustom')}</button>
-              <div class="bec-period-track">
-                <button class="bec-period-btn" data-period="daily">${t('daily')}</button>
-                <button class="bec-period-btn" data-period="monthly">${t('monthly')}</button>
-              </div>
+            <div class="bec-period-track">
+              <button class="bec-period-btn" data-period="daily">${t('daily')}</button>
+              <button class="bec-period-btn" data-period="monthly">${t('monthly')}</button>
             </div>
           </div>
           <div class="bec-content"></div>
@@ -346,18 +341,6 @@ class BillEnergyCard extends HTMLElement {
       </ha-card>
     `;
     this._built = true;
-    root.querySelector('.bec-lang-btn').addEventListener('click', () => {
-      this._config.language = this._config.language === 'en' ? 'th' : 'en';
-      this._buildShell();
-      this._updateView();
-    });
-    root.querySelector('.bec-palette-btn').addEventListener('click', () => {
-      const order = ['solar', 'modern', 'pea', 'custom'];
-      const idx = order.indexOf(this._config.palette);
-      this._config.palette = order[(idx + 1) % order.length];
-      this._buildShell();
-      this._updateView();
-    });
     root.querySelectorAll('.bec-period-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         this._period = btn.dataset.period;
@@ -566,6 +549,8 @@ class BillEnergyCard extends HTMLElement {
       </div>
       <div class="bec-settings">
         <ha-icon class="bec-settings-icon" icon="mdi:cog-outline"></ha-icon>
+        <label>${t('fieldLanguageLabel')}<button type="button" class="bec-lang-btn">${(c.language || 'th').toUpperCase()}</button></label>
+        <label>${t('fieldPaletteLabel')}<button type="button" class="bec-palette-btn">${c.palette === 'solar' ? t('paletteSolar') : c.palette === 'modern' ? t('paletteModern') : c.palette === 'pea' ? 'PEA' : t('paletteCustom')}</button></label>
         <label>${t('ftSettingLabel')}<input type="number" step="0.0001" class="bec-set-ft" value="${c.ft_adjustment}"></label>
         <label>${t('serviceSettingLabel')}<input type="number" step="0.01" class="bec-set-service" value="${c.service_charge}"></label>
         <label>${t('vatSettingLabel')}<input type="number" step="0.1" class="bec-set-vat" value="${c.vat_percent}"></label>
@@ -573,6 +558,17 @@ class BillEnergyCard extends HTMLElement {
         ${c.cutoff_hour_entity ? '<label>' + t('cutoffHourSettingLabel') + '<input type="number" step="1" min="0" max="23" class="bec-set-cutoff-hour" value="' + this._entityState(c.cutoff_hour_entity) + '"></label>' : ''}
       </div>
     `;
+    content.querySelector('.bec-lang-btn').addEventListener('click', () => {
+      this._config.language = this._config.language === 'en' ? 'th' : 'en';
+      this._buildShell();
+      this._updateView();
+    });
+    content.querySelector('.bec-palette-btn').addEventListener('click', () => {
+      const order = ['solar', 'modern', 'pea', 'custom'];
+      const idx = order.indexOf(this._config.palette);
+      this._config.palette = order[(idx + 1) % order.length];
+      this._updateView();
+    });
     content.querySelector('.bec-set-ft').addEventListener('change', (e) => {
       c.ft_adjustment = parseFloat(e.target.value) || 0;
       this._renderData(labels, gridVals, loadVals, daysArr);
