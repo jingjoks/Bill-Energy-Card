@@ -1,0 +1,40 @@
+# config ของจริงสำหรับคุณ — รวมทุก entity ที่คุยกันมาตลอดทั้งสายไว้ในไฟล์เดียว
+# (ไฟล์ basic/custom-colors/custom-rates/with-live-meter ที่ส่งให้ก่อนหน้า แต่ละไฟล์โชว์แค่ "ตัวอย่างฟีเจอร์เดียว"
+#  ไม่ได้ให้เลือกอันใดอันหนึ่ง — อันนี้คือของจริงที่รวมทุกอย่างที่คุณตั้งไว้แล้วเข้าด้วยกัน)
+
+type: custom:bill-energy-card
+title: Bill Energy Card
+
+# เซ็นเซอร์รายวัน/รอบบิล (utility_meter ที่สร้างไว้)
+grid_entity_daily: sensor.smartmeter_2_phase_daily_grid
+load_entity_daily: sensor.smartmeter_2_phase_daily_load
+grid_entity_cycle: sensor.smartmeter_2_phase_monthly_grid
+load_entity_cycle: sensor.smartmeter_2_phase_monthly_load
+
+# ผูก input_number วัน/ชั่วโมงตัดรอบ เพื่อให้แก้ได้จากในตัวการ์ดเลย
+cutoff_day_entity: input_number.pea_cutoff_day
+cutoff_hour_entity: input_number.pea_cutoff_hour
+
+# เซ็นเซอร์เรียลไทม์ (เปิดส่วน Live Meter ด้านบนของการ์ด)
+grid_power_entity: sensor.pzem_2phase_power_grid
+load_power_entity: sensor.pzem_2phase_power_load
+grid_voltage_entity: sensor.pzem_2phase_voltage_grid
+load_voltage_entity: sensor.pzem_2phase_voltage_load
+grid_current_entity: sensor.pzem_2phase_current_grid
+load_current_entity: sensor.pzem_2phase_current_load
+live_sparkline_hours: 6
+
+# อัตราค่าไฟ (ค่าเริ่มต้นตามประกาศ กกพ. งวด พ.ค.-ส.ค. 2569 — ไม่ต้องแก้จนกว่าจะมีประกาศงวดใหม่)
+ft_adjustment: 0.1623
+service_charge: 24.62
+vat_percent: 7
+tier1_rate: 3.2484
+tier1_limit: 150
+tier2_rate: 4.2218
+tier2_limit: 400
+tier3_rate: 4.4217
+
+palette: solar
+default_period: daily
+daily_days: 7
+cycle_count: 6
