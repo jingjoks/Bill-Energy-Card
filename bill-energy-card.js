@@ -42,6 +42,12 @@ const DEFAULT_CONFIG = {
   tier2_rate: 4.2218,
   tier2_limit: 400,
   tier3_rate: 4.4217,
+  rate_scheme: 'tiered',
+  tou_on_peak_rate: 4.1025,
+  tou_off_peak_rate: 2.5849,
+  tou_on_peak_start_hour: 9,
+  tou_on_peak_end_hour: 22,
+  tou_service_charge: 38.22,
   palette: 'solar',
   grid_color: '#378ADD',
   load_color: '#1D9E75',
@@ -112,6 +118,17 @@ const STRINGS = {
     fieldTier2Rate: 'อัตราค่าไฟ ขั้นที่ 2 (บาท/หน่วย)',
     fieldTier2Limit: 'เพดานหน่วย ขั้นที่ 2 (หน่วย)',
     fieldTier3Rate: 'อัตราค่าไฟ ขั้นที่ 3 (เกินเพดานขั้น 2)',
+    secRateScheme: 'รูปแบบอัตราค่าไฟ',
+    rateSchemeTiered: 'ปกติ (ขั้นบันได)',
+    rateSchemeTou: 'TOU (ตามช่วงเวลา)',
+    fieldTouOnPeakRate: 'อัตรา On-Peak (บาท/หน่วย)',
+    fieldTouOffPeakRate: 'อัตรา Off-Peak (บาท/หน่วย)',
+    fieldTouOnPeakStart: 'เริ่ม On-Peak (ชั่วโมง, จ-ศ)',
+    fieldTouOnPeakEnd: 'สิ้นสุด On-Peak (ชั่วโมง, จ-ศ)',
+    fieldTouService: 'ค่าบริการ TOU (บาท/เดือน)',
+    onPeakLabel: 'On-Peak',
+    offPeakLabel: 'Off-Peak',
+    touHint: 'ค่าเริ่มต้นเป็นอัตราอ้างอิงทั่วไป ต้องตรวจสอบ/แก้ให้ตรงกับประเภทผู้ใช้ไฟจริงของคุณจากใบแจ้งหนี้ TOU — และไม่ได้รวมวันหยุดราชการ (จะคิดเป็นวันธรรมดาแทน เพราะปฏิทินวันหยุดเปลี่ยนทุกปี) ถ้าวันหยุดราชการตรงกับวันธรรมดา ตัวเลขอาจสูงกว่าบิลจริงเล็กน้อย',
     secColor: 'โทนสี',
     fieldPaletteLabel: 'โทนสี',
     paletteOptSolar: 'โซลาร์ (ฟ้า-เขียว)',
@@ -192,6 +209,17 @@ const STRINGS = {
     fieldTier2Rate: 'Tier 2 rate (THB/unit)',
     fieldTier2Limit: 'Tier 2 limit (units)',
     fieldTier3Rate: 'Tier 3 rate (above tier 2 limit)',
+    secRateScheme: 'Rate scheme',
+    rateSchemeTiered: 'Standard (tiered)',
+    rateSchemeTou: 'TOU (time of use)',
+    fieldTouOnPeakRate: 'On-Peak rate (THB/kWh)',
+    fieldTouOffPeakRate: 'Off-Peak rate (THB/kWh)',
+    fieldTouOnPeakStart: 'On-Peak start hour (Mon-Fri)',
+    fieldTouOnPeakEnd: 'On-Peak end hour (Mon-Fri)',
+    fieldTouService: 'TOU service charge (THB/month)',
+    onPeakLabel: 'On-Peak',
+    offPeakLabel: 'Off-Peak',
+    touHint: 'Defaults are commonly-cited reference rates only — verify/adjust against your real TOU bill for your customer category. Thai public holidays are not accounted for (treated as regular weekdays) since the holiday calendar changes yearly; if a holiday falls on a weekday, the estimate may run slightly higher than your real bill.',
     secColor: 'Color theme',
     fieldPaletteLabel: 'Color theme',
     paletteOptSolar: 'Solar (blue-green)',
@@ -249,6 +277,14 @@ function fmtBaht(n) {
 
 function fmtKwh(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function fmtPower(watts) {
+  const w = Number(watts) || 0;
+  if (Math.abs(w) >= 1000) {
+    return { value: (w / 1000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), unit: 'kW' };
+  }
+  return { value: w.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }), unit: 'W' };
 }
 
 class BillEnergyCard extends HTMLElement {
@@ -312,9 +348,30 @@ class BillEnergyCard extends HTMLElement {
     );
   }
 
-  _calcCost(units, days) {
+  _isOnPeakHour(date) {
+    const c = this._config;
+    const day = date.getDay();
+    if (day === 0 || day === 6) return false;
+    const hour = date.getHours();
+    const start = c.tou_on_peak_start_hour != null ? c.tou_on_peak_start_hour : 9;
+    const end = c.tou_on_peak_end_hour != null ? c.tou_on_peak_end_hour : 22;
+    return hour >= start && hour < end;
+  }
+
+  _calcCost(units, days, onPeakUnits) {
     const c = this._config;
     units = Math.max(0, units || 0);
+    if (c.rate_scheme === 'tou' && onPeakUnits != null) {
+      const onP = Math.min(units, Math.max(0, onPeakUnits || 0));
+      const offP = Math.max(0, units - onP);
+      const energy = onP * c.tou_on_peak_rate + offP * c.tou_off_peak_rate;
+      const ft = units * c.ft_adjustment;
+      const svcRate = c.tou_service_charge != null ? c.tou_service_charge : c.service_charge;
+      const service = svcRate * (days / 30);
+      const subtotal = energy + ft + service;
+      const vat = subtotal * (c.vat_percent / 100);
+      return { units, energy, ft, service, vat, total: subtotal + vat, onPeak: onP, offPeak: offP };
+    }
     const energy = this._tieredEnergy(units);
     const ft = units * c.ft_adjustment;
     const service = c.service_charge * (days / 30);
@@ -374,16 +431,16 @@ class BillEnergyCard extends HTMLElement {
         .bec-live-text { font-size:10px; color:var(--success-color,#4caf50); font-weight:500; }
         .bec-hero { text-align:center; padding:0 0 14px; }
         .bec-hero-label { font-size:12px; color:var(--secondary-text-color); margin-bottom:2px; }
-        .bec-hero-value { font-size:24px; font-weight:500; color:var(--success-color,#4caf50); }
+        .bec-hero-value { font-size:28px; font-weight:500; color:var(--success-color,#4caf50); }
         .bec-hero-bar { margin-top:8px; height:6px; border-radius:999px; background:var(--secondary-background-color, rgba(127,127,127,0.12)); overflow:hidden; }
         .bec-hero-bar-fill { height:100%; border-radius:999px; }
         .bec-livecols { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; margin-bottom:12px; }
         .bec-livecol { border-radius:14px; padding:10px 12px; min-width:0; }
-        .bec-livecol-label { font-size:11px; color:var(--secondary-text-color); margin-bottom:4px; }
-        .bec-livepower { font-size:18px; font-weight:500; color:var(--primary-text-color); }
-        .bec-livepower-unit { font-size:11px; font-weight:400; color:var(--secondary-text-color); }
-        .bec-livesub { font-size:10px; color:var(--secondary-text-color); margin-top:4px; }
-        .bec-livechart-title { font-size:11px; color:var(--secondary-text-color); margin-bottom:4px; }
+        .bec-livecol-label { font-size:12px; color:var(--secondary-text-color); margin-bottom:4px; }
+        .bec-livepower { font-size:20px; font-weight:500; color:var(--primary-text-color); }
+        .bec-livepower-unit { font-size:12px; font-weight:400; color:var(--secondary-text-color); }
+        .bec-livesub { font-size:11px; color:var(--secondary-text-color); margin-top:2px; }
+        .bec-livechart-title { font-size:12px; color:var(--secondary-text-color); margin-bottom:4px; }
         .bec-costheader { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
         .bec-costheader-title { font-weight:500; font-size:15px; color:var(--primary-text-color); }
         .bec-livedivider { border-top:1px solid var(--divider-color); margin:14px 0; }
@@ -503,13 +560,13 @@ class BillEnergyCard extends HTMLElement {
       <div class="bec-livecols">
         <div class="bec-livecol" style="background:${tint(colors.grid, 0.1)}">
           <div class="bec-livecol-label"><ha-icon icon="mdi:transmission-tower" style="color:${colors.grid};--mdc-icon-size:13px;"></ha-icon> ${t('gridShort')}</div>
-          <div class="bec-livepower">${Number(gridPower).toFixed(1)} <span class="bec-livepower-unit">W</span></div>
-          ${subParts.length ? '<div class="bec-livesub">' + subParts.join(' · ') + '</div>' : ''}
+          <div class="bec-livepower">${fmtPower(gridPower).value} <span class="bec-livepower-unit">${fmtPower(gridPower).unit}</span></div>
+          ${subParts.map((p) => '<div class="bec-livesub">' + p + '</div>').join('')}
         </div>
         <div class="bec-livecol" style="background:${tint(colors.load, 0.1)}">
           <div class="bec-livecol-label"><ha-icon icon="mdi:home-lightning-bolt" style="color:${colors.load};--mdc-icon-size:13px;"></ha-icon> ${t('loadShort')}</div>
-          <div class="bec-livepower">${Number(loadPower).toFixed(1)} <span class="bec-livepower-unit">W</span></div>
-          ${subPartsLoad.length ? '<div class="bec-livesub">' + subPartsLoad.join(' · ') + '</div>' : ''}
+          <div class="bec-livepower">${fmtPower(loadPower).value} <span class="bec-livepower-unit">${fmtPower(loadPower).unit}</span></div>
+          ${subPartsLoad.map((p) => '<div class="bec-livesub">' + p + '</div>').join('')}
         </div>
       </div>
       <div class="bec-livechart-title">${t('liveChartTitle')} ${c.live_sparkline_hours || 6} ${t('hoursWord')}</div>
@@ -543,14 +600,26 @@ class BillEnergyCard extends HTMLElement {
     const toKw = (series) => series.map((r) => Math.max(0, r.v) / 1000);
     const gridKw = toKw(gridSeries);
     const loadKw = toKw(loadSeries);
-    const maxV = Math.max(0.1, ...gridKw, ...loadKw) * 1.15;
+
+    // ใช้ percentile ที่ 90 แทนค่า max ตรงๆ กันไม่ให้ outlier 1-2 ชั่วโมง (เช่น noise จากเซ็นเซอร์) ทำให้แกนทั้งกราฟบูดเบี้ยว
+    // จุดที่เกินสเกลจะถูก clamp ไว้ที่ขอบบนของกราฟแทนการยืดแกนตามมัน
+    const percentile = (arr, p) => {
+      if (!arr.length) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const idx = Math.min(sorted.length - 1, Math.floor(p * (sorted.length - 1)));
+      return sorted[idx];
+    };
+    const allVals = gridKw.concat(loadKw);
+    const p90 = percentile(allVals, 0.9);
+    const trueMax = Math.max(0.1, ...allVals);
+    const maxV = Math.max(0.1, p90, trueMax * 0.4) * 1.25;
 
     const toPoints = (vals) => {
       if (!vals.length) return '';
       return vals
         .map((v, i) => {
           const x = padLeft + (i / Math.max(1, vals.length - 1)) * chartW;
-          const y = padTop + chartH - (v / maxV) * chartH;
+          const y = Math.max(padTop, padTop + chartH - (v / maxV) * chartH);
           return x.toFixed(1) + ',' + y.toFixed(1);
         })
         .join(' ');
@@ -651,20 +720,24 @@ class BillEnergyCard extends HTMLElement {
     const segments = [];
     let segStart = rows[0].start;
     let segSum = 0;
+    let segOnPeak = 0;
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i].sum;
       const b = rows[i - 1].sum;
       const delta = a != null && b != null ? Math.max(0, a - b) : 0;
       const resetHappened = rows[i].state != null && rows[i - 1].state != null && rows[i].state < rows[i - 1].state;
+      const isOnPeak = this._isOnPeakHour(new Date(rows[i].start));
       if (resetHappened) {
-        segments.push({ start: segStart, end: rows[i - 1].start, value: segSum });
+        segments.push({ start: segStart, end: rows[i - 1].start, value: segSum, onPeak: segOnPeak });
         segStart = rows[i].start;
         segSum = delta;
+        segOnPeak = isOnPeak ? delta : 0;
       } else {
         segSum += delta;
+        if (isOnPeak) segOnPeak += delta;
       }
     }
-    segments.push({ start: segStart, end: rows[rows.length - 1].start, value: segSum, current: true });
+    segments.push({ start: segStart, end: rows[rows.length - 1].start, value: segSum, onPeak: segOnPeak, current: true });
     return segments;
   }
 
@@ -679,7 +752,7 @@ class BillEnergyCard extends HTMLElement {
       const startMs = new Date(s.start).getTime();
       const endMs = new Date(s.end).getTime();
       const days = Math.max(1, Math.round((endMs - startMs) / 86400000) || 1);
-      return { start: s.start, value: s.value, days };
+      return { start: s.start, value: s.value, days, onPeak: s.onPeak || 0 };
     });
   }
 
@@ -721,6 +794,8 @@ class BillEnergyCard extends HTMLElement {
     const gridVals = [];
     const loadVals = [];
     const daysArr = [];
+    const gridOnPeakArr = [];
+    const loadOnPeakArr = [];
     for (let i = 0; i < n; i++) {
       const g = gridSeries[i];
       const l = loadSeries[i];
@@ -729,19 +804,23 @@ class BillEnergyCard extends HTMLElement {
       gridVals.push(g ? g.value : 0);
       loadVals.push(l ? l.value : 0);
       daysArr.push(ref.days || 1);
+      gridOnPeakArr.push(g ? g.onPeak : 0);
+      loadOnPeakArr.push(l ? l.onPeak : 0);
     }
-    this._renderData(labels, gridVals, loadVals, daysArr);
+    this._renderData(labels, gridVals, loadVals, daysArr, gridOnPeakArr, loadOnPeakArr);
   }
 
-  _renderData(labels, gridVals, loadVals, daysArr) {
+  _renderData(labels, gridVals, loadVals, daysArr, gridOnPeakArr, loadOnPeakArr) {
     const c = this._config;
     const t = (k) => this._t(k);
     const colors = this._getColors();
     const totalDays = daysArr.reduce((s, d) => s + d, 0) || labels.length;
     const gridTotal = gridVals.reduce((s, v) => s + v, 0);
     const loadTotal = loadVals.reduce((s, v) => s + v, 0);
-    const gridCost = this._calcCost(gridTotal, totalDays);
-    const loadCost = this._calcCost(loadTotal, totalDays);
+    const gridOnPeakTotal = (gridOnPeakArr || []).reduce((s, v) => s + v, 0);
+    const loadOnPeakTotal = (loadOnPeakArr || []).reduce((s, v) => s + v, 0);
+    const gridCost = this._calcCost(gridTotal, totalDays, gridOnPeakTotal);
+    const loadCost = this._calcCost(loadTotal, totalDays, loadOnPeakTotal);
     const saved = loadCost.total - gridCost.total;
     const savedPct = loadCost.total > 0 ? (saved / loadCost.total) * 100 : 0;
     const cur = t('currencyWord');
@@ -779,7 +858,7 @@ class BillEnergyCard extends HTMLElement {
         <span><span class="bec-swatch" style="background:${colors.grid}"></span>${t('fromGrid')}</span>
         <span><span class="bec-swatch" style="background:${colors.load}"></span>${t('totalLoad')}</span>
       </div>
-      <div class="bec-chartwrap">${this._buildChartSVG(labels, gridVals, loadVals, daysArr, colors)}</div>
+      <div class="bec-chartwrap">${this._buildChartSVG(labels, gridVals, loadVals, daysArr, colors, gridOnPeakArr, loadOnPeakArr)}</div>
       <div class="bec-breakdown">
         <div class="bec-bdcol" style="background:${tint(colors.grid, 0.09)};border:1px solid ${tint(colors.grid, 0.3)}">
           <div class="bec-bdtitle"><ha-icon icon="mdi:transmission-tower" style="color:${colors.grid}"></ha-icon>${t('detailGrid')}</div>
@@ -822,15 +901,15 @@ class BillEnergyCard extends HTMLElement {
     });
     content.querySelector('.bec-set-ft').addEventListener('change', (e) => {
       c.ft_adjustment = parseFloat(e.target.value) || 0;
-      this._renderData(labels, gridVals, loadVals, daysArr);
+      this._renderData(labels, gridVals, loadVals, daysArr, gridOnPeakArr, loadOnPeakArr);
     });
     content.querySelector('.bec-set-service').addEventListener('change', (e) => {
       c.service_charge = parseFloat(e.target.value) || 0;
-      this._renderData(labels, gridVals, loadVals, daysArr);
+      this._renderData(labels, gridVals, loadVals, daysArr, gridOnPeakArr, loadOnPeakArr);
     });
     content.querySelector('.bec-set-vat').addEventListener('change', (e) => {
       c.vat_percent = parseFloat(e.target.value) || 0;
-      this._renderData(labels, gridVals, loadVals, daysArr);
+      this._renderData(labels, gridVals, loadVals, daysArr, gridOnPeakArr, loadOnPeakArr);
     });
     const cutoffDayEl = content.querySelector('.bec-set-cutoff-day');
     if (cutoffDayEl) {
@@ -860,9 +939,15 @@ class BillEnergyCard extends HTMLElement {
   _buildBreakdownHTML(cost, accentColor) {
     const t = (k) => this._t(k);
     const cur = t('currencyWord');
+    const energyRows =
+      cost.onPeak != null
+        ? '<div class="bec-bdrow"><span>' + t('onPeakLabel') + '</span><span>' + fmtKwh(cost.onPeak) + ' ' + t('unitsWord') + '</span></div>' +
+          '<div class="bec-bdrow"><span>' + t('offPeakLabel') + '</span><span>' + fmtKwh(cost.offPeak) + ' ' + t('unitsWord') + '</span></div>' +
+          '<div class="bec-bdrow"><span>' + t('energyCost') + '</span><span>' + fmtBaht(cost.energy) + ' ' + cur + '</span></div>'
+        : '<div class="bec-bdrow"><span>' + t('unitsUsed') + '</span><span>' + fmtKwh(cost.units) + ' ' + t('unitsWord') + '</span></div>' +
+          '<div class="bec-bdrow"><span>' + t('energyCost') + '</span><span>' + fmtBaht(cost.energy) + ' ' + cur + '</span></div>';
     return (
-      '<div class="bec-bdrow"><span>' + t('unitsUsed') + '</span><span>' + fmtKwh(cost.units) + ' ' + t('unitsWord') + '</span></div>' +
-      '<div class="bec-bdrow"><span>' + t('energyCost') + '</span><span>' + fmtBaht(cost.energy) + ' ' + cur + '</span></div>' +
+      energyRows +
       '<div class="bec-bdrow"><span>' + t('ftWord') + '</span><span>' + fmtBaht(cost.ft) + ' ' + cur + '</span></div>' +
       '<div class="bec-bdrow"><span>' + t('serviceCharge') + '</span><span>' + fmtBaht(cost.service) + ' ' + cur + '</span></div>' +
       '<div class="bec-bdrow"><span>' + t('vatWord') + '</span><span>' + fmtBaht(cost.vat) + ' ' + cur + '</span></div>' +
@@ -884,7 +969,7 @@ class BillEnergyCard extends HTMLElement {
     );
   }
 
-  _buildChartSVG(labels, gridVals, loadVals, daysArr, colors) {
+  _buildChartSVG(labels, gridVals, loadVals, daysArr, colors, gridOnPeakArr, loadOnPeakArr) {
     const W = 640;
     const H = 300;
     const marginLeft = 40;
@@ -935,8 +1020,8 @@ class BillEnergyCard extends HTMLElement {
       bars += '<path d="' + this._roundedTopPath(lx, ly, barW, lh, barRadius) + '" fill="' + colors.load + '"/>';
 
       if (i % labelStep === 0) {
-        const gCost = this._calcCost(gv, daysArr[i] || 1).total;
-        const lCost = this._calcCost(lv, daysArr[i] || 1).total;
+        const gCost = this._calcCost(gv, daysArr[i] || 1, gridOnPeakArr ? gridOnPeakArr[i] : null).total;
+        const lCost = this._calcCost(lv, daysArr[i] || 1, loadOnPeakArr ? loadOnPeakArr[i] : null).total;
         const gLabelY = Math.max(marginTop - 10, gy - 10);
         const lLabelY = Math.max(marginTop - 10, ly - 10);
         bars +=
@@ -1060,14 +1145,30 @@ class BillEnergyCardEditor extends HTMLElement {
         <div id="load-cycle-slot" style="margin:6px 0;"></div>
 
         <div class="section-title">${t('secRates')}</div>
+        <div class="field-row">
+          <label>${t('secRateScheme')}</label>
+          <div class="btn-group" id="rate-scheme-group">
+            <button type="button" data-value="tiered" class="${(c.rate_scheme || 'tiered') === 'tiered' ? 'active' : ''}">${t('rateSchemeTiered')}</button>
+            <button type="button" data-value="tou" class="${c.rate_scheme === 'tou' ? 'active' : ''}">${t('rateSchemeTou')}</button>
+          </div>
+        </div>
         ${this._field(t('fieldFt'), 'ft_adjustment', 'number', '0.0001')}
-        ${this._field(t('fieldService'), 'service_charge', 'number', '0.01')}
         ${this._field(t('fieldVat'), 'vat_percent', 'number', '0.1')}
-        ${this._field(t('fieldTier1Rate'), 'tier1_rate', 'number', '0.0001')}
-        ${this._field(t('fieldTier1Limit'), 'tier1_limit', 'number', '1')}
-        ${this._field(t('fieldTier2Rate'), 'tier2_rate', 'number', '0.0001')}
-        ${this._field(t('fieldTier2Limit'), 'tier2_limit', 'number', '1')}
-        ${this._field(t('fieldTier3Rate'), 'tier3_rate', 'number', '0.0001')}
+        ${
+          c.rate_scheme === 'tou'
+            ? this._field(t('fieldTouService'), 'tou_service_charge', 'number', '0.01') +
+              this._field(t('fieldTouOnPeakRate'), 'tou_on_peak_rate', 'number', '0.0001') +
+              this._field(t('fieldTouOffPeakRate'), 'tou_off_peak_rate', 'number', '0.0001') +
+              this._field(t('fieldTouOnPeakStart'), 'tou_on_peak_start_hour', 'number', '1') +
+              this._field(t('fieldTouOnPeakEnd'), 'tou_on_peak_end_hour', 'number', '1') +
+              '<div style="font-size:11px;color:var(--secondary-text-color);margin:-2px 0 6px;">' + t('touHint') + '</div>'
+            : this._field(t('fieldService'), 'service_charge', 'number', '0.01') +
+              this._field(t('fieldTier1Rate'), 'tier1_rate', 'number', '0.0001') +
+              this._field(t('fieldTier1Limit'), 'tier1_limit', 'number', '1') +
+              this._field(t('fieldTier2Rate'), 'tier2_rate', 'number', '0.0001') +
+              this._field(t('fieldTier2Limit'), 'tier2_limit', 'number', '1') +
+              this._field(t('fieldTier3Rate'), 'tier3_rate', 'number', '0.0001')
+        }
 
         <div class="section-title">${t('secCutoff')}</div>
         <div id="cutoff-day-slot" style="margin:6px 0;"></div>
@@ -1150,6 +1251,13 @@ class BillEnergyCardEditor extends HTMLElement {
     this.shadowRoot.querySelectorAll('#period-group button').forEach((btn) => {
       btn.addEventListener('click', () => {
         const newConfig = Object.assign({}, this._config, { default_period: btn.dataset.value });
+        this._emitChange(newConfig);
+        this._render();
+      });
+    });
+    this.shadowRoot.querySelectorAll('#rate-scheme-group button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const newConfig = Object.assign({}, this._config, { rate_scheme: btn.dataset.value });
         this._emitChange(newConfig);
         this._render();
       });

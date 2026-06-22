@@ -1,0 +1,18 @@
+# ตัวอย่างตั้งค่าแบบ TOU (Time of Use) — คำนวณตามช่วงเวลาที่ใช้ไฟ แทนขั้นบันได
+# อัตราด้านล่างเป็นค่าอ้างอิงทั่วไป ต้องตรวจสอบ/แก้ให้ตรงกับใบแจ้งหนี้ TOU จริงของคุณ
+# (อัตราต่างกันตามประเภทผู้ใช้ไฟ — ที่อยู่อาศัย/ธุรกิจ/โรงงาน ราคาไม่เท่ากัน)
+
+type: custom:bill-energy-card
+grid_entity_daily: sensor.smartmeter_2_phase_daily_grid
+load_entity_daily: sensor.smartmeter_2_phase_daily_load
+grid_entity_cycle: sensor.smartmeter_2_phase_monthly_grid
+load_entity_cycle: sensor.smartmeter_2_phase_monthly_load
+
+rate_scheme: tou
+tou_on_peak_rate: 4.1025
+tou_off_peak_rate: 2.5849
+tou_on_peak_start_hour: 9
+tou_on_peak_end_hour: 22
+tou_service_charge: 38.22
+ft_adjustment: 0.1623
+vat_percent: 7

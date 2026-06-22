@@ -1,0 +1,18 @@
+# ตัวอย่างปรับอัตราค่าไฟใหม่แบบขั้นบันได (ปกติ) — ใช้เวลาประกาศ กกพ. งวดใหม่ออก (Ft เปลี่ยนทุก 4 เดือน)
+# ตัวเลขด้านล่างเป็นตัวอย่างสมมติ ให้แทนที่ด้วยค่าจริงจากประกาศงวดนั้น
+# อยากใช้แบบ TOU (ตามช่วงเวลา) แทน ดู examples/tou-rate.yaml
+
+type: custom:bill-energy-card
+grid_entity_daily: sensor.grid_energy_daily
+load_entity_daily: sensor.load_energy_daily
+grid_entity_cycle: sensor.grid_energy_cycle
+load_entity_cycle: sensor.load_energy_cycle
+rate_scheme: tiered
+ft_adjustment: 0.39
+service_charge: 24.62
+vat_percent: 7
+tier1_rate: 3.2484
+tier1_limit: 150
+tier2_rate: 4.2218
+tier2_limit: 400
+tier3_rate: 4.4217
